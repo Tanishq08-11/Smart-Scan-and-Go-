@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Scan & Go — Printable Product Barcodes</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #fff;
+            padding: 20px;
+            color: #000;
+        }
+        h1 { text-align: center; font-size: 1.4rem; margin-bottom: 6px; }
+        .subtitle { text-align: center; font-size: 0.85rem; color: #555; margin-bottom: 24px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .label {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+        .product-name {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .price {
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .barcode-code {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 6px;
+            font-family: 'Courier New', monospace;
+        }
+        svg { max-width: 100%; }
+
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+            .grid { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>&#128722; Scan & Go — Product Labels</h1>
+<p class="subtitle">Print and stick these labels on your 10 shelf products. Scan the barcode to add to cart.</p>
+
+<div class="no-print" style="text-align:center; margin-bottom:20px;">
+    <button onclick="window.print()" style="padding:10px 30px;background:#6c63ff;color:#fff;border:none;border-radius:8px;font-size:1rem;cursor:pointer;">
+        &#128438; Print This Sheet
+    </button>
+    &nbsp;
+    <a href="/ui/index.html" style="color:#6c63ff;">Back to App</a>
+</div>
+
+<div class="grid" id="label-grid"></div>
+
+<script>
+const PRODUCTS = [
+    { name: "Coca-Cola 500ml",   barcode: "1111", price: "$2.50", cv: "bottle" },
+    { name: "Fresh Apple",       barcode: "2222", price: "$0.80", cv: "apple" },
+    { name: "Coffee Mug",        barcode: "3333", price: "$5.99", cv: "cup" },
+    { name: "Notebook",          barcode: "4444", price: "$3.50", cv: "book" },
+    { name: "Smartphone Case",   barcode: "5555", price: "$15.00", cv: "cell phone" },
+    { name: "Wireless Mouse",    barcode: "6666", price: "$25.00", cv: "mouse" },
+    { name: "Scissors",          barcode: "7777", price: "$4.25", cv: "scissors" },
+    { name: "Oral-B Toothbrush", barcode: "8888", price: "$2.99", cv: "toothbrush" },
+    { name: "Fresh Orange",      barcode: "9999", price: "$0.75", cv: "orange" },
+    { name: "Chiquita Banana",   barcode: "0000", price: "$0.50", cv: "banana" },
+];
+
+const grid = document.getElementById("label-grid");
+
+PRODUCTS.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "label";
+    div.innerHTML = `
+        <div class="product-name">${p.name}</div>
+        <div class="price">${p.price} &nbsp;|&nbsp; CV: <code>${p.cv}</code></div>
+        <svg id="barcode-${i}"></svg>
+        <div class="barcode-code">Code: ${p.barcode}</div>
+    `;
+    grid.appendChild(div);
+});
+
+// Generate barcodes after DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+    PRODUCTS.forEach((p, i) => {
+        JsBarcode(`#barcode-${i}`, p.barcode, {
+            format: "CODE128",
+            width: 2.5,
+            height: 60,
+            displayValue: true,
+            fontSize: 14,
+            margin: 6,
+        });
+    });
+});
+</script>
+</body>
+</html>

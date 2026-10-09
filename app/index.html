@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scan & Go — Smart Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- ZXing for real camera barcode scanning -->
+    <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <style>
+        :root {
+            --bg:        #0a0a0f;
+            --surface:   #12121a;
+            --card:      #1a1a28;
+            --border:    #2a2a40;
+            --accent:    #6c63ff;
+            --accent-glow: rgba(108,99,255,0.25);
+            --green:     #22c55e;
+            --green-glow:rgba(34,197,94,0.2);
+            --red:       #ef4444;
+            --red-glow:  rgba(239,68,68,0.2);
+            --amber:     #f59e0b;
+            --text:      #e2e8f0;
+            --muted:     #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            padding: 30px 0 20px;
+        }
+        header .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6c63ff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+
+        .panel {
+            width: 100%;
+            max-width: 480px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .panel-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .session-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 4px;
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+            color: #fff;
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow); }
+        .btn-ghost {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-green {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            color: #fff;
+            width: 100%;
+            padding: 14px;
+            font-size: 1rem;
+            box-shadow: 0 4px 20px var(--green-glow);
+        }
+        .btn-green:hover { transform: translateY(-2px); }
+        .btn-red {
+            background: rgba(239,68,68,0.15);
+            border: 1px solid var(--red);
+            color: #fca5a5;
+        }
+
+        /* ---- Scanner Section ---- */
+        .scan-modes {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .mode-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+        .mode-tab.active {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Manual input */
+        .scan-group { display: flex; gap: 10px; }
+        .barcode-input {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 1.1rem;
+            font-family: 'Courier New', monospace;
+            color: var(--text);
+            letter-spacing: 2px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .barcode-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        /* Camera scanner */
+        #camera-section { display: none; }
+        #camera-section.visible { display: block; }
+        .camera-container {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 4/3;
+        }
+        #preview-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .scan-frame {
+            width: 220px;
+            height: 140px;
+            border: 2px solid var(--accent);
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+        }
+        .scan-line {
+            position: absolute;
+            width: 200px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #6c63ff, transparent);
+            animation: scan-line 2s ease-in-out infinite;
+        }
+        @keyframes scan-line {
+            0%   { top: calc(50% - 60px); }
+            50%  { top: calc(50% + 60px); }
+            100% { top: calc(50% - 60px); }
+        }
+        .camera-status {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .camera-status.active { color: var(--green); }
+
+        /* Select device */
+        .device-select {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        /* USB hint */
+        .usb-hint {
+            background: rgba(108,99,255,0.08);
+            border: 1px solid rgba(108,99,255,0.3);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            color: #a78bfa;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Products */
+        .product-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .product-chip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .product-chip:hover { border-color: var(--accent); background: var(--accent-glow); }
+        .product-chip .pname { font-size: 0.82rem; font-weight: 500; }
+        .product-chip .pcode { font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+
+        /* Cart */
+        .cart-empty { text-align: center; padding: 30px; color: var(--muted); font-size: 0.9rem; }
+        .cart-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .cart-item:last-child { border-bottom: none; }
+        .cart-item-name { font-size: 0.9rem; font-weight: 500; }
+        .cart-item-qty { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+        .cart-item-price { font-weight: 700; color: var(--accent); }
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0 4px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        /* Barcodes link */
+        .barcodes-link {
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .barcodes-link a {
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-decoration: none;
+            border-bottom: 1px dashed var(--border);
+        }
+        .barcodes-link a:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* Toast */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 440px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 999;
+        }
+        .toast {
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border: 1px solid;
+            backdrop-filter: blur(10px);
+            animation: slide-up 0.3s ease;
+        }
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .toast.success { background: rgba(22,163,74,0.15); border-color: var(--green); color: #86efac; }
+        .toast.error   { background: rgba(239,68,68,0.15); border-color: var(--red); color: #fca5a5; }
+        .toast.warning { background: rgba(245,158,11,0.15); border-color: var(--amber); color: #fcd34d; }
+        .toast-icon { font-size: 1.2rem; }
+        .toast-body .toast-title { font-weight: 700; margin-bottom: 2px; }
+        .toast-body .toast-msg { opacity: 0.8; font-size: 0.82rem; }
+
+        .checkout-screen { text-align: center; padding: 20px 0; }
+        .checkout-screen .check-icon { font-size: 3.5rem; margin-bottom: 12px; }
+        .checkout-screen h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+        .checkout-screen .total-amount {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #22c55e, #4ade80);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">⚡ Scan & Go</div>
+    <div class="subtitle">Smart Shelf Checkout Prototype</div>
+</header>
+
+<!-- Session -->
+<div class="panel" id="session-panel">
+    <div class="panel-title">Shopping Session</div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <div class="session-badge">
+            <span class="dot"></span>
+            <span id="session-id-text">------</span>
+        </div>
+        <button class="btn btn-ghost" onclick="startNewSession()">New Session</button>
+    </div>
+</div>
+
+<!-- Scanner -->
+<div class="panel">
+    <div class="panel-title">Barcode Scanner</div>
+
+    <!-- Mode Tabs -->
+    <div class="scan-modes">
+        <div class="mode-tab active" id="tab-manual" onclick="setMode('manual')">
+            &#9000; Manual / USB
+        </div>
+        <div class="mode-tab" id="tab-camera" onclick="setMode('camera')">
+            &#128247; Camera Scan
+        </div>
+    </div>
+
+    <!-- Manual Input Mode -->
+    <div id="manual-section">
+        <div class="scan-group">
+            <input id="barcode-input" class="barcode-input" type="text" placeholder="Enter or scan barcode..." maxlength="20" autocomplete="off" />
+            <button class="btn btn-ghost" onclick="doScan()">Scan</button>
+        </div>
+        <div class="usb-hint">
+            <span>&#128268;</span>
+            <span>USB barcode scanner? Just scan — it auto-submits!</span>
+        </div>
+    </div>
+
+    <!-- Camera Scan Mode -->
+    <div id="camera-section">
+        <select id="device-select" class="device-select" onchange="switchCamera(this.value)">
+            <option value="">Loading cameras...</option>
+        </select>
+        <div class="camera-container">
+            <video id="preview-video" autoplay playsinline muted></video>
+            <div class="scan-overlay">
+                <div class="scan-frame"></div>
+                <div class="scan-line"></div>
+            </div>
+        </div>
+        <div class="camera-status" id="camera-status">Initializing camera...</div>
+        <div style="margin-top:10px;">
+            <button class="btn btn-red" onclick="stopCamera()" style="width:100%">Stop Camera</button>
+        </div>
+    </div>
+
+    <!-- Product Cheatsheet -->
+    <div style="margin-top: 16px;">
+        <div class="panel-title" style="margin-bottom: 8px;">Shelf Products — Click to autofill barcode</div>
+        <div class="product-grid" id="product-grid"></div>
+    </div>
+</div>
+
+<!-- Cart -->
+<div class="panel" id="cart-panel">
+    <div class="panel-title">Virtual Cart</div>
+    <div id="cart-body">
+        <div class="cart-empty">Your cart is empty. Scan an item to begin.</div>
+    </div>
+    <div id="checkout-area" style="display:none; margin-top:12px;">
+        <div class="cart-total">
+            <span>Total</span>
+            <span id="cart-total-amt">$0.00</span>
+        </div>
+        <button class="btn btn-green" onclick="doCheckout()">&#128179; Pay & Checkout</button>
+    </div>
+</div>
+
+<!-- Print barcodes link -->
+<div class="barcodes-link">
+    <a href="/ui/barcodes.html" target="_blank">&#128438; Print product barcode labels</a>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+const API = "http://127.0.0.1:8000";
+let currentSessionId = null;
+let codeReader = null;
+let currentMode = "manual";
+
+const PRODUCTS = [
+    { name: "Coca-Cola 500ml",  barcode: "1111", cv: "bottle" },
+    { name: "Fresh Apple",      barcode: "2222", cv: "apple" },
+    { name: "Coffee Mug",       barcode: "3333", cv: "cup" },
+    { name: "Notebook",         barcode: "4444", cv: "book" },
+    { name: "Smartphone Case",  barcode: "5555", cv: "cell phone" },
+    { name: "Wireless Mouse",   barcode: "6666", cv: "mouse" },
+    { name: "Scissors",         barcode: "7777", cv: "scissors" },
+    { name: "Toothbrush",       barcode: "8888", cv: "toothbrush" },
+    { name: "Fresh Orange",     barcode: "9999", cv: "orange" },
+    { name: "Chiquita Banana",  barcode: "0000", cv: "banana" },
+];
+
+// ---- Product Grid ----
+function buildProductGrid() {
+    const grid = document.getElementById("product-grid");
+    grid.innerHTML = PRODUCTS.map(p => `
+        <div class="product-chip" onclick="fillBarcode('${p.barcode}')">
+            <span class="pname">${p.name}</span>
+            <span class="pcode">${p.barcode}</span>
+        </div>
+    `).join("");
+}
+
+function fillBarcode(code) {
+    setMode("manual");
+    document.getElementById("barcode-input").value = code;
+    document.getElementById("barcode-input").focus();
+}
+
+// ---- Mode switching ----
+function setMode(mode) {
+    currentMode = mode;
+    document.getElementById("tab-manual").classList.toggle("active", mode === "manual");
+    document.getElementById("tab-camera").classList.toggle("active", mode === "camera");
+    document.getElementById("manual-section").style.display = mode === "manual" ? "block" : "none";
+
+    if (mode === "camera") {
+        document.getElementById("camera-section").classList.add("visible");
+        startCamera();
+    } else {
+        stopCamera();
+        document.getElementById("camera-section").classList.remove("visible");
+    }
+}
+
+// ---- Camera barcode scanning (ZXing) ----
+async function startCamera() {
+    if (!window.ZXing) {
+        showToast("error", "Library Error", "ZXing scanner not loaded. Check your internet connection.");
+        return;
+    }
+
+    document.getElementById("camera-status").textContent = "Starting camera...";
+    document.getElementById("camera-status").className = "camera-status";
+
+    try {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+
+        // Load available cameras
+        const devices = await codeReader.listVideoInputDevices();
+        const select = document.getElementById("device-select");
+        select.innerHTML = devices.map(d =>
+            `<option value="${d.deviceId}">${d.label || "Camera " + d.deviceId.slice(0,8)}</option>`
+        ).join("");
+
+        const selectedId = devices[0]?.deviceId;
+        await startDecode(selectedId);
+    } catch (err) {
+        document.getElementById("camera-status").textContent = "Camera error: " + err.message;
+        showToast("error", "Camera Error", err.message);
+    }
+}
+
+async function startDecode(deviceId) {
+    try {
+        await codeReader.decodeFromVideoDevice(deviceId, "preview-video", (result, err) => {
+            if (result) {
+                const barcode = result.getText();
+                document.getElementById("camera-status").textContent = "Scanned: " + barcode;
+                document.getElementById("camera-status").className = "camera-status active";
+                // Brief debounce to avoid double-scans
+                codeReader.reset();
+                handleScannedBarcode(barcode);
+                // Restart after 2 seconds
+                setTimeout(() => {
+                    if (currentMode === "camera") startDecode(deviceId);
+                }, 2000);
+            }
+        });
+        document.getElementById("camera-status").textContent = "Point camera at a barcode...";
+        document.getElementById("camera-status").className = "camera-status active";
+    } catch (err) {
+        document.getElementById("camera-status").textContent = "Decode error: " + err.message;
+    }
+}
+
+function switchCamera(deviceId) {
+    if (!deviceId || !codeReader) return;
+    codeReader.reset();
+    startDecode(deviceId);
+}
+
+function stopCamera() {
+    if (codeReader) {
+        codeReader.reset();
+        codeReader = null;
+    }
+    document.getElementById("camera-status").textContent = "Camera stopped.";
+}
+
+// ---- USB Scanner: detect rapid keypress + Enter ----
+let usbBuffer = "";
+let usbTimer = null;
+document.addEventListener("keydown", (e) => {
+    if (currentMode !== "manual") return;
+    // USB scanners type very fast — buffer keystrokes
+    if (e.key === "Enter") {
+        if (usbBuffer.length >= 4) {
+            // Looks like a USB scanner — use the buffer
+            handleScannedBarcode(usbBuffer);
+        }
+        usbBuffer = "";
+        clearTimeout(usbTimer);
+    } else if (e.key.length === 1) {
+        usbBuffer += e.key;
+        clearTimeout(usbTimer);
+        usbTimer = setTimeout(() => { usbBuffer = ""; }, 100); // reset if slow typing
+    }
+});
+
+// ---- Core scan handler ----
+function handleScannedBarcode(barcode) {
+    document.getElementById("barcode-input").value = barcode;
+    doScan(barcode);
+}
+
+// ---- Session ----
+async function startNewSession() {
+    stopCamera();
+    try {
+        const res = await fetch(`${API}/session/new`, { method: "POST" });
+        const data = await res.json();
+        currentSessionId = data.session_id;
+        document.getElementById("session-id-text").textContent = currentSessionId;
+        showToast("success", "Session Started", `Session ID: ${currentSessionId}`);
+        refreshCart();
+    } catch {
+        showToast("error", "Connection Error", "Cannot reach the backend. Is the server running?");
+    }
+}
+
+// ---- Scan ----
+async function doScan(forcedBarcode) {
+    if (!currentSessionId) {
+        showToast("warning", "No Session", "Click 'New Session' first.");
+        return;
+    }
+    const barcode = forcedBarcode || document.getElementById("barcode-input").value.trim();
+    if (!barcode) {
+        showToast("warning", "Empty Barcode", "Please enter or scan a barcode.");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API}/app/scan`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: currentSessionId, barcode })
+        });
+        const data = await res.json();
+
+        if (data.status === "success") {
+            showToast("success", "Added to Cart!", data.message);
+            document.getElementById("barcode-input").value = "";
+            refreshCart();
+        } else if (data.status === "anomaly") {
+            showToast("error", "Anomaly Detected!", data.reason);
+        } else {
+            showToast("error", "Error", data.detail || "Unknown error.");
+        }
+    } catch {
+        showToast("error", "Connection Error", "Cannot reach the backend.");
+    }
+}
+
+// ---- Cart ----
+async function refreshCart() {
+    if (!currentSessionId) return;
+    try {
+        const res = await fetch(`${API}/app/cart/${currentSessionId}`);
+        const data = await res.json();
+        renderCart(data);
+    } catch { }
+}
+
+function renderCart(data) {
+    const body = document.getElementById("cart-body");
+    const checkoutArea = document.getElementById("checkout-area");
+
+    if (data.status === "checked_out") {
+        body.innerHTML = `
+            <div class="checkout-screen">
+                <div class="check-icon">&#127881;</div>
+                <h2>Payment Complete!</h2>
+                <p style="color:var(--muted);margin-bottom:16px">Thank you for shopping.</p>
+                <div class="total-amount">$${data.total.toFixed(2)}</div>
+            </div>`;
+        checkoutArea.style.display = "none";
+        return;
+    }
+
+    if (!data.items || data.items.length === 0) {
+        body.innerHTML = `<div class="cart-empty">Your cart is empty. Scan an item to begin.</div>`;
+        checkoutArea.style.display = "none";
+        return;
+    }
+
+    body.innerHTML = data.items.map(item => `
+        <div class="cart-item">
+            <div>
+                <div class="cart-item-name">${item.name}</div>
+                <div class="cart-item-qty">Qty: ${item.quantity} x $${item.price.toFixed(2)}</div>
+            </div>
+            <div class="cart-item-price">$${item.subtotal.toFixed(2)}</div>
+        </div>
+    `).join("");
+
+    document.getElementById("cart-total-amt").textContent = `$${data.total.toFixed(2)}`;
+    checkoutArea.style.display = "block";
+}
+
+// ---- Checkout ----
+async function doCheckout() {
+    if (!currentSessionId) return;
+    try {
+        const res = await fetch(`${API}/app/checkout`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: currentSessionId })
+        });
+        const data = await res.json();
+        renderCart({ ...data, status: "checked_out" });
+        showToast("success", "Checkout Complete!", `Total paid: $${data.total.toFixed(2)}`);
+    } catch {
+        showToast("error", "Connection Error", "Cannot reach the backend.");
+    }
+}
+
+// ---- Toast ----
+function showToast(type, title, msg) {
+    const icons = { success: "&#10003;", error: "&#33;", warning: "&#9888;" };
+    const container = document.getElementById("toast-container");
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type]}</span>
+        <div class="toast-body">
+            <div class="toast-title">${title}</div>
+            <div class="toast-msg">${msg}</div>
+        </div>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
+// ---- Init ----
+document.addEventListener("DOMContentLoaded", () => {
+    buildProductGrid();
+    document.getElementById("barcode-input").addEventListener("keydown", e => {
+        if (e.key === "Enter") doScan();
+    });
+    startNewSession();
+});
+</script>
+</body>
+</html>
