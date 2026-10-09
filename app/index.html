@@ -534,7 +534,7 @@
                 const isApproved = data.gate_decision === "GATE_OPEN_AUTOMATIC";
 
                 document.getElementById("modal-status-icon").textContent = isApproved ? "🟢" : "🔴";
-                document.getElementById("modal-status-title").textContent = isApproved ? "Exit Gate Released" : "100% Security Hold";
+                document.getElementById("modal-status-title").textContent = isApproved ? "Exit Gate Released" : "Automated Security Hold";
                 document.getElementById("modal-status-sub").textContent = data.gate_status_msg;
 
                 document.getElementById("modal-receipt-body").innerHTML = `

@@ -1,5 +1,5 @@
 # backend/main.py
-# FastAPI backend — 100% Loss Prevention Engine for Scan & Go
+# FastAPI backend — Real-Time Loss Prevention Engine for Scan & Go
 # Features direct HTML file response for root '/' and '/ui' routes so app loads instantly on phone & PC!
 
 import sys
@@ -389,7 +389,7 @@ def checkout(req: dict):
         gate_status_msg = "🟢 Exit Gate Released — Pre-Authorized Card Charged Automatically"
     else:
         gate_decision = "GATE_LOCKED_SECURITY_AUDIT"
-        gate_status_msg = f"🔴 100% Security Hold — Unresolved Shelf Picks: {unresolved_picks}, Trust Score: {trust_score}"
+        gate_status_msg = f"🔴 Automated Security Hold — Unresolved Shelf Picks: {unresolved_picks}, Trust Score: {trust_score}"
 
     conn.execute("UPDATE sessions SET status = 'checked_out' WHERE id = ?", (session_id,))
     conn.commit()

@@ -1,4 +1,4 @@
-# 🛡️ Smart Scan & Go — 100% Loss Prevention & Automated Exit Platform
+# 🛡️ Smart Scan & Go — Autonomous Loss Prevention & Real-Time Security Verification Platform
 
 [![Python](https://img.shields.io/badge/Python-3.13%2B-blue.svg?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-v3.6.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -16,7 +16,7 @@ Self-checkout kiosks cost global retailers over **$100 Billion annually** in shr
 
 Existing Scan-and-Go mobile apps rely on honor systems or random spot-checks, creating massive theft vulnerabilities.
 
-**Smart Scan & Go** solves this by creating a **fail-safe, real-time security layer**. By combining **Overhead Shelf Computer Vision (YOLOv8)**, **Smart Scale Weight Sensor Telemetry ($\Delta W$)**, **Entry QR Person ReID**, and a **Deterministic Pick Ledger Audit**, the system cross-references physical shelf pickups with smartphone barcode scans to **guarantee 100% loss prevention** while delivering a frictionless walkout experience for honest shoppers.
+**Smart Scan & Go** solves this by creating an **autonomous, real-time security layer**. By combining **Overhead Shelf Computer Vision (YOLOv8)**, **Smart Scale Weight Sensor Telemetry ($\Delta W$)**, **Entry QR Person ReID**, and a **Deterministic Pick Ledger Audit**, the system cross-references physical shelf pickups with smartphone barcode scans to **provide automated loss prevention** while delivering a frictionless walkout experience for honest shoppers.
 
 ---
 
@@ -41,12 +41,12 @@ flowchart TD
         H -- Item Still On Shelf / Mismatch --> J["🚨 BLOCK SCAN & Log Anomaly"]
     end
 
-    subgraph STAGE4["4. 100% LOSS PREVENTION EXIT GATE"]
+    subgraph STAGE4["4. AUTOMATED SECURITY EXIT GATE"]
         I --> K["Shopper taps 'Checkout & Exit Gate'"]
         J --> K
         K --> L{"Pick Ledger Reconciled & Trust Score >= 80?"}
         L -- YES --> M["🟢 GATE OPENS AUTOMATICALLY<br>(Pre-Auth Card Charged)"]
-        L -- NO --> N["🔴 100% SECURITY HOLD<br>(Gate Locked & Card Charged for Unreturned Picks)"]
+        L -- NO --> N["🔴 AUTOMATED SECURITY HOLD<br>(Gate Locked & Card Charged for Unreturned Picks)"]
     end
 ```
 
@@ -70,7 +70,7 @@ $$\text{Available Unscanned Picks} = \text{Total Shelf Picks} - \text{Total Shel
 ### 4. 📈 Explicit Trust Score Engine ($T_{\text{score}} \in [0, 100]$)
 $$T_{\text{score}} = 100 - (\text{Unresolved High-Value Picks} \times 50) - (\text{Class Mismatches} \times 20) - (\text{Invalid Scans} \times 10)$$
 
-### 5. 🛡️ 100% Loss Prevention Exit Gate Lock Policy
+### 5. 🛡️ Autonomous Exit Gate Lock Policy
 The exit gate evaluates the Pick Ledger before releasing the exit barrier:
 * **Clean Ledger ($\text{Unresolved Picks} = 0$)**: 🟢 **`GATE_OPEN_AUTOMATIC`** (Pre-authorized card charged automatically, digital receipt issued).
 * **Unresolved Theft Attempt ($\text{Unresolved Picks} > 0$)**: 🔴 **`GATE_LOCKED_SECURITY_AUDIT`** (Exit gate stays locked; pre-authorized payment automatically charged for unreturned shelf picks).
@@ -89,7 +89,6 @@ Smart-Scan-and-Go/
 │   ├── database.py       # SQLite Database Handler & ReID Schema
 │   └── store.db          # SQLite Database File
 ├── cv_node.py            # Standalone YOLOv8 Computer Vision Shelf Camera Node
-├── requirements.txt      # Python Dependencies
 ├── .gitignore            # Git Ignore Rules
 └── README.md             # Project Documentation
 ```
