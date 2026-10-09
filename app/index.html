@@ -3,740 +3,579 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scan & Go — Smart Checkout</title>
+    <title>Mobile Scan & Go — Retail Security & Checkout</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <!-- ZXing for real camera barcode scanning -->
-    <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
         :root {
-            --bg:        #0a0a0f;
-            --surface:   #12121a;
-            --card:      #1a1a28;
-            --border:    #2a2a40;
-            --accent:    #6c63ff;
-            --accent-glow: rgba(108,99,255,0.25);
-            --green:     #22c55e;
-            --green-glow:rgba(34,197,94,0.2);
-            --red:       #ef4444;
-            --red-glow:  rgba(239,68,68,0.2);
-            --amber:     #f59e0b;
-            --text:      #e2e8f0;
-            --muted:     #64748b;
+            --bg-body:       #F8FAFC;
+            --bg-card:       #FFFFFF;
+            --border:        #E2E8F0;
+            --text-primary:  #0F172A;
+            --text-secondary:#475569;
+            --text-muted:    #94A3B8;
+            --brand-blue:    #2563EB;
+            --brand-blue-hover:#1D4ED8;
+            --success-green: #059669;
+            --success-bg:    #ECFDF5;
+            --warning-amber: #D97706;
+            --warning-bg:    #FFFBEB;
+            --danger-red:    #DC2626;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: 16px;
         }
 
-        header {
+        .top-navbar {
             width: 100%;
-            max-width: 480px;
-            text-align: center;
-            padding: 30px 0 20px;
-        }
-        header .logo {
-            font-size: 1.8rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #6c63ff, #a78bfa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-        }
-        header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
-
-        .panel {
-            width: 100%;
-            max-width: 480px;
-            background: var(--card);
+            max-width: 520px;
+            background: #FFFFFF;
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .panel-title {
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 12px;
-        }
-
-        .session-badge {
-            display: inline-flex;
+        .brand-logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0F172A;
+            display: flex;
             align-items: center;
             gap: 8px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 8px 16px;
-            font-family: 'Courier New', monospace;
-            font-size: 1.2rem;
+        }
+        .brand-logo span {
+            background: var(--brand-blue);
+            color: #FFFFFF;
+            font-size: 0.75rem;
             font-weight: 700;
-            color: var(--accent);
-            letter-spacing: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
         }
-        .dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--green);
-            box-shadow: 0 0 8px var(--green);
-            animation: pulse 2s infinite;
+        .system-status {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--success-green);
+            background: var(--success-bg);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(5,150,105,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success-green); }
+
+        .app-container {
+            width: 100%;
+            max-width: 520px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 12px;
-            font-family: 'Inter', sans-serif;
+            padding: 12px 18px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-family: inherit;
             font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background 0.15s ease;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #6c63ff, #8b5cf6);
-            color: #fff;
-            width: 100%;
-            padding: 14px;
-            font-size: 1rem;
-            box-shadow: 0 4px 20px var(--accent-glow);
-        }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow); }
-        .btn-ghost {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-        }
-        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-        .btn-green {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            color: #fff;
-            width: 100%;
-            padding: 14px;
-            font-size: 1rem;
-            box-shadow: 0 4px 20px var(--green-glow);
-        }
-        .btn-green:hover { transform: translateY(-2px); }
-        .btn-red {
-            background: rgba(239,68,68,0.15);
-            border: 1px solid var(--red);
-            color: #fca5a5;
-        }
+        .btn-brand { background: var(--brand-blue); color: #FFFFFF; width: 100%; }
+        .btn-brand:hover { background: var(--brand-blue-hover); }
 
-        /* ---- Scanner Section ---- */
-        .scan-modes {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 14px;
-        }
-        .mode-tab {
+        .btn-success { background: var(--success-green); color: #FFFFFF; width: 100%; }
+        .btn-success:hover { background: #047857; }
+
+        .btn-outline { background: #FFFFFF; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-outline:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
+
+        .form-group { display: flex; gap: 8px; margin-bottom: 12px; }
+        .form-input {
             flex: 1;
-            padding: 10px;
-            text-align: center;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            background: var(--surface);
+            background: #FFFFFF;
             border: 1px solid var(--border);
-            color: var(--muted);
-            transition: all 0.2s;
-        }
-        .mode-tab.active {
-            background: var(--accent-glow);
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        /* Manual input */
-        .scan-group { display: flex; gap: 10px; }
-        .barcode-input {
-            flex: 1;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-size: 1.1rem;
-            font-family: 'Courier New', monospace;
-            color: var(--text);
-            letter-spacing: 2px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .barcode-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-
-        /* Camera scanner */
-        #camera-section { display: none; }
-        #camera-section.visible { display: block; }
-        .camera-container {
-            position: relative;
-            width: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            aspect-ratio: 4/3;
-        }
-        #preview-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .scan-overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-        }
-        .scan-frame {
-            width: 220px;
-            height: 140px;
-            border: 2px solid var(--accent);
-            border-radius: 12px;
-            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
-        }
-        .scan-line {
-            position: absolute;
-            width: 200px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #6c63ff, transparent);
-            animation: scan-line 2s ease-in-out infinite;
-        }
-        @keyframes scan-line {
-            0%   { top: calc(50% - 60px); }
-            50%  { top: calc(50% + 60px); }
-            100% { top: calc(50% - 60px); }
-        }
-        .camera-status {
-            margin-top: 10px;
-            text-align: center;
-            font-size: 0.82rem;
-            color: var(--muted);
-        }
-        .camera-status.active { color: var(--green); }
-
-        /* Select device */
-        .device-select {
-            width: 100%;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 8px 12px;
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
-            margin-bottom: 10px;
-            outline: none;
-        }
-
-        /* USB hint */
-        .usb-hint {
-            background: rgba(108,99,255,0.08);
-            border: 1px solid rgba(108,99,255,0.3);
-            border-radius: 10px;
+            border-radius: 8px;
             padding: 10px 14px;
-            font-size: 0.8rem;
-            color: #a78bfa;
-            margin-top: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            outline: none;
         }
+        .form-input:focus { border-color: var(--brand-blue); }
 
-        /* Products */
-        .product-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        .product-chip {
-            background: var(--surface);
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .info-cell { background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+        .info-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+        .info-value { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+
+        /* Dynamic Catalog & Shelf Chips */
+        .shelf-live-box {
+            background: #F8FAFC;
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 12px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: flex;
-            justify-content: space-between;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .shelf-item-tag {
+            display: inline-flex;
             align-items: center;
-        }
-        .product-chip:hover { border-color: var(--accent); background: var(--accent-glow); }
-        .product-chip .pname { font-size: 0.82rem; font-weight: 500; }
-        .product-chip .pcode { font-family: 'Courier New', monospace; font-size: 0.8rem; color: var(--accent); font-weight: 700; }
-
-        /* Cart */
-        .cart-empty { text-align: center; padding: 30px; color: var(--muted); font-size: 0.9rem; }
-        .cart-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .cart-item:last-child { border-bottom: none; }
-        .cart-item-name { font-size: 0.9rem; font-weight: 500; }
-        .cart-item-qty { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-        .cart-item-price { font-weight: 700; color: var(--accent); }
-        .cart-total {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0 4px;
-            font-size: 1.1rem;
-            font-weight: 700;
-        }
-
-        /* Barcodes link */
-        .barcodes-link {
-            width: 100%;
-            max-width: 480px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .barcodes-link a {
-            color: var(--muted);
+            gap: 6px;
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
             font-size: 0.8rem;
-            text-decoration: none;
-            border-bottom: 1px dashed var(--border);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-right: 6px;
+            margin-top: 6px;
         }
-        .barcodes-link a:hover { color: var(--accent); border-color: var(--accent); }
 
-        /* Toast */
-        #toast-container {
+        .sample-barcodes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .barcode-chip {
+            background: #F1F5F9;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .barcode-chip:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
+
+        /* Cart List */
+        .cart-list { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+        .cart-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #F8FAFC;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .item-main { display: flex; align-items: center; gap: 12px; }
+        .item-icon { font-size: 1.5rem; }
+        .item-title { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+        .item-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+        .item-price { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
+
+        .badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-left: 6px; }
+        .badge-verified { background: var(--success-bg); color: var(--success-green); border: 1px solid rgba(5,150,105,0.3); }
+
+        .total-row { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border); margin-top: 14px; }
+        .total-label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
+        .total-amount { font-size: 1.5rem; font-weight: 800; color: var(--brand-blue); }
+
+        .toast-notification {
             position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 440px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 999;
+            bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0; z-index: 1000;
         }
-        .toast {
-            border-radius: 14px;
-            padding: 14px 18px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            border: 1px solid;
-            backdrop-filter: blur(10px);
-            animation: slide-up 0.3s ease;
-        }
-        @keyframes slide-up {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .toast.success { background: rgba(22,163,74,0.15); border-color: var(--green); color: #86efac; }
-        .toast.error   { background: rgba(239,68,68,0.15); border-color: var(--red); color: #fca5a5; }
-        .toast.warning { background: rgba(245,158,11,0.15); border-color: var(--amber); color: #fcd34d; }
-        .toast-icon { font-size: 1.2rem; }
-        .toast-body .toast-title { font-weight: 700; margin-bottom: 2px; }
-        .toast-body .toast-msg { opacity: 0.8; font-size: 0.82rem; }
+        .toast-notification.active { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 2px; }
+        .toast-msg { font-size: 0.8rem; color: var(--text-secondary); }
 
-        .checkout-screen { text-align: center; padding: 20px 0; }
-        .checkout-screen .check-icon { font-size: 3.5rem; margin-bottom: 12px; }
-        .checkout-screen h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
-        .checkout-screen .total-amount {
-            font-size: 2.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.6); display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 2000; padding: 16px;
         }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-dialog { background: #FFFFFF; border-radius: 12px; padding: 24px; width: 100%; max-width: 440px; }
     </style>
 </head>
 <body>
 
-<header>
-    <div class="logo">⚡ Scan & Go</div>
-    <div class="subtitle">Smart Shelf Checkout Prototype</div>
-</header>
-
-<!-- Session -->
-<div class="panel" id="session-panel">
-    <div class="panel-title">Shopping Session</div>
-    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div class="session-badge">
-            <span class="dot"></span>
-            <span id="session-id-text">------</span>
+    <div class="top-navbar" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div class="brand-logo">🛒 SMART SCAN & GO <span>Enterprise</span></div>
+            <div class="system-status"><div class="status-dot"></div> Live Camera API</div>
         </div>
-        <button class="btn btn-ghost" onclick="startNewSession()">New Session</button>
-    </div>
-</div>
-
-<!-- Scanner -->
-<div class="panel">
-    <div class="panel-title">Barcode Scanner</div>
-
-    <!-- Mode Tabs -->
-    <div class="scan-modes">
-        <div class="mode-tab active" id="tab-manual" onclick="setMode('manual')">
-            &#9000; Manual / USB
-        </div>
-        <div class="mode-tab" id="tab-camera" onclick="setMode('camera')">
-            &#128247; Camera Scan
+        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; line-height: 1.3;">
+            An intelligent computer vision & sensor-fusion security layer that cross-references a customer's physical shelf interactions with their smartphone barcode scans in real-time.
         </div>
     </div>
 
-    <!-- Manual Input Mode -->
-    <div id="manual-section">
-        <div class="scan-group">
-            <input id="barcode-input" class="barcode-input" type="text" placeholder="Enter or scan barcode..." maxlength="20" autocomplete="off" />
-            <button class="btn btn-ghost" onclick="doScan()">Scan</button>
-        </div>
-        <div class="usb-hint">
-            <span>&#128268;</span>
-            <span>USB barcode scanner? Just scan — it auto-submits!</span>
-        </div>
-    </div>
+    <div class="app-container">
 
-    <!-- Camera Scan Mode -->
-    <div id="camera-section">
-        <select id="device-select" class="device-select" onchange="switchCamera(this.value)">
-            <option value="">Loading cameras...</option>
-        </select>
-        <div class="camera-container">
-            <video id="preview-video" autoplay playsinline muted></video>
-            <div class="scan-overlay">
-                <div class="scan-frame"></div>
-                <div class="scan-line"></div>
+        <!-- Entry Session Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">1. Entry Gate Authorization</div>
+                <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 600;">Payment Pre-Auth: OK</div>
+            </div>
+
+            <div id="no-session-view">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
+                    Scan entry QR code to bind your shopper track ID and pre-authorize your session.
+                </p>
+                <button class="btn btn-brand" onclick="startNewSession()">
+                    Start Session (Simulate Entry Gate Scan)
+                </button>
+            </div>
+
+            <div id="active-session-view" style="display: none;">
+                <div class="info-grid">
+                    <div class="info-cell">
+                        <div class="info-label">Session ID</div>
+                        <div class="info-value" id="disp-session-id" style="font-family: monospace;">-</div>
+                    </div>
+                    <div class="info-cell">
+                        <div class="info-label">Person Track ID</div>
+                        <div class="info-value" id="disp-track-id" style="font-family: monospace; color: var(--brand-blue);">-</div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="camera-status" id="camera-status">Initializing camera...</div>
-        <div style="margin-top:10px;">
-            <button class="btn btn-red" onclick="stopCamera()" style="width:100%">Stop Camera</button>
+
+        <!-- Live Camera Shelf State Card (Dynamic from Camera AI) -->
+        <div class="card" id="shelf-live-card" style="display: none;">
+            <div class="card-header">
+                <div class="card-title">2. Smart Camera Shelf Analysis</div>
+                <div style="font-size: 0.75rem; color: var(--brand-blue); font-weight: 600;">Live AI Feed</div>
+            </div>
+
+            <div class="shelf-live-box">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); uppercase; margin-bottom: 4px;">
+                    ITEMS DETECTED ON SHELF BY CAMERA:
+                </div>
+                <div id="shelf-items-list">
+                    <span class="shelf-item-tag">🔍 Analyzing shelf vision feed...</span>
+                </div>
+            </div>
+
+            <div class="info-grid" style="margin-bottom: 0;">
+                <div class="info-cell" style="text-align: center;">
+                    <div class="info-label">Trust Score (T)</div>
+                    <div class="info-value" id="disp-trust-score" style="font-size: 1.5rem; color: var(--success-green);">100</div>
+                </div>
+                <div class="info-cell" style="text-align: center;">
+                    <div class="info-label">Unresolved Picks</div>
+                    <div class="info-value" id="disp-unresolved-picks" style="font-size: 1.5rem; color: var(--success-green);">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barcode Scanner Card (Dynamic Catalog) -->
+        <div class="card" id="scanner-card" style="display: none;">
+            <div class="card-header">
+                <div class="card-title">3. Item Barcode Scanner</div>
+            </div>
+
+            <div class="form-group">
+                <input type="text" class="form-input" id="barcode-input" placeholder="Scan or enter item barcode (e.g. 1111)" onkeydown="if(event.key==='Enter') scanBarcode()" />
+                <button class="btn btn-outline" onclick="scanBarcode()">Scan</button>
+            </div>
+
+            <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-top: 10px; margin-bottom: 4px;">
+                AVAILABLE STORE CATALOG (TAP TO SCAN):
+            </div>
+            <div class="sample-barcodes" id="dynamic-catalog-chips">
+                <span class="barcode-chip">Loading catalog...</span>
+            </div>
+        </div>
+
+        <!-- Digital Cart & Exit Card -->
+        <div class="card" id="cart-card" style="display: none;">
+            <div class="card-header">
+                <div class="card-title">4. Digital Cart</div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);" id="disp-item-count">0 items</div>
+            </div>
+
+            <div class="cart-list" id="cart-items-container">
+                <div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 0.85rem;">
+                    Your cart is empty. Pick up an item from the shelf and scan its barcode.
+                </div>
+            </div>
+
+            <div class="total-row">
+                <div class="total-label">Total Outstanding</div>
+                <div class="total-amount" id="disp-total-amount">$0.00</div>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <button class="btn btn-success" onclick="executeCheckout()">
+                    Complete & Exit Gate Reconciliation
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-notification" id="toast-el">
+        <div class="toast-title" id="toast-title">Notice</div>
+        <div class="toast-msg" id="toast-msg">Message body</div>
+    </div>
+
+    <!-- Exit Gate Decision Modal -->
+    <div class="modal-backdrop" id="exit-modal-el">
+        <div class="modal-dialog">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="font-size: 2rem;" id="modal-status-icon">🟢</div>
+                <div>
+                    <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);" id="modal-status-title">Gate Released</h3>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="modal-status-sub">Ledger verified</div>
+                </div>
+            </div>
+
+            <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 0.8rem;" id="modal-receipt-body">
+                <!-- Receipt injected here -->
+            </div>
+
+            <button class="btn btn-brand" onclick="resetAppSession()">Done & Return to Entry</button>
         </div>
     </div>
 
-    <!-- Product Cheatsheet -->
-    <div style="margin-top: 16px;">
-        <div class="panel-title" style="margin-bottom: 8px;">Shelf Products — Click to autofill barcode</div>
-        <div class="product-grid" id="product-grid"></div>
-    </div>
-</div>
+    <script>
+        const API_URL = window.location.origin;
+        let currentSessionId = null;
 
-<!-- Cart -->
-<div class="panel" id="cart-panel">
-    <div class="panel-title">Virtual Cart</div>
-    <div id="cart-body">
-        <div class="cart-empty">Your cart is empty. Scan an item to begin.</div>
-    </div>
-    <div id="checkout-area" style="display:none; margin-top:12px;">
-        <div class="cart-total">
-            <span>Total</span>
-            <span id="cart-total-amt">$0.00</span>
-        </div>
-        <button class="btn btn-green" onclick="doCheckout()">&#128179; Pay & Checkout</button>
-    </div>
-</div>
-
-<!-- Print barcodes link -->
-<div class="barcodes-link">
-    <a href="/ui/barcodes.html" target="_blank">&#128438; Print product barcode labels</a>
-</div>
-
-<div id="toast-container"></div>
-
-<script>
-const API = "http://127.0.0.1:8000";
-let currentSessionId = null;
-let codeReader = null;
-let currentMode = "manual";
-
-const PRODUCTS = [
-    { name: "Coca-Cola 500ml",  barcode: "1111", cv: "bottle" },
-    { name: "Fresh Apple",      barcode: "2222", cv: "apple" },
-    { name: "Coffee Mug",       barcode: "3333", cv: "cup" },
-    { name: "Notebook",         barcode: "4444", cv: "book" },
-    { name: "Smartphone Case",  barcode: "5555", cv: "cell phone" },
-    { name: "Wireless Mouse",   barcode: "6666", cv: "mouse" },
-    { name: "Scissors",         barcode: "7777", cv: "scissors" },
-    { name: "Toothbrush",       barcode: "8888", cv: "toothbrush" },
-    { name: "Fresh Orange",     barcode: "9999", cv: "orange" },
-    { name: "Chiquita Banana",  barcode: "0000", cv: "banana" },
-];
-
-// ---- Product Grid ----
-function buildProductGrid() {
-    const grid = document.getElementById("product-grid");
-    grid.innerHTML = PRODUCTS.map(p => `
-        <div class="product-chip" onclick="fillBarcode('${p.barcode}')">
-            <span class="pname">${p.name}</span>
-            <span class="pcode">${p.barcode}</span>
-        </div>
-    `).join("");
-}
-
-function fillBarcode(code) {
-    setMode("manual");
-    document.getElementById("barcode-input").value = code;
-    document.getElementById("barcode-input").focus();
-}
-
-// ---- Mode switching ----
-function setMode(mode) {
-    currentMode = mode;
-    document.getElementById("tab-manual").classList.toggle("active", mode === "manual");
-    document.getElementById("tab-camera").classList.toggle("active", mode === "camera");
-    document.getElementById("manual-section").style.display = mode === "manual" ? "block" : "none";
-
-    if (mode === "camera") {
-        document.getElementById("camera-section").classList.add("visible");
-        startCamera();
-    } else {
-        stopCamera();
-        document.getElementById("camera-section").classList.remove("visible");
-    }
-}
-
-// ---- Camera barcode scanning (ZXing) ----
-async function startCamera() {
-    if (!window.ZXing) {
-        showToast("error", "Library Error", "ZXing scanner not loaded. Check your internet connection.");
-        return;
-    }
-
-    document.getElementById("camera-status").textContent = "Starting camera...";
-    document.getElementById("camera-status").className = "camera-status";
-
-    try {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-
-        // Load available cameras
-        const devices = await codeReader.listVideoInputDevices();
-        const select = document.getElementById("device-select");
-        select.innerHTML = devices.map(d =>
-            `<option value="${d.deviceId}">${d.label || "Camera " + d.deviceId.slice(0,8)}</option>`
-        ).join("");
-
-        const selectedId = devices[0]?.deviceId;
-        await startDecode(selectedId);
-    } catch (err) {
-        document.getElementById("camera-status").textContent = "Camera error: " + err.message;
-        showToast("error", "Camera Error", err.message);
-    }
-}
-
-async function startDecode(deviceId) {
-    try {
-        await codeReader.decodeFromVideoDevice(deviceId, "preview-video", (result, err) => {
-            if (result) {
-                const barcode = result.getText();
-                document.getElementById("camera-status").textContent = "Scanned: " + barcode;
-                document.getElementById("camera-status").className = "camera-status active";
-                // Brief debounce to avoid double-scans
-                codeReader.reset();
-                handleScannedBarcode(barcode);
-                // Restart after 2 seconds
-                setTimeout(() => {
-                    if (currentMode === "camera") startDecode(deviceId);
-                }, 2000);
+        async function loadCatalog() {
+            try {
+                const res = await fetch(`${API_URL}/products`);
+                const products = await res.json();
+                const container = document.getElementById("dynamic-catalog-chips");
+                container.innerHTML = products.map(p => `
+                    <span class="barcode-chip" onclick="quickScan('${p.barcode}')">
+                        ${p.emoji || '📦'} ${p.barcode} (${p.name} $${p.price.toFixed(2)})
+                    </span>
+                `).join("");
+            } catch (err) {
+                console.error("Failed to load products catalog", err);
             }
-        });
-        document.getElementById("camera-status").textContent = "Point camera at a barcode...";
-        document.getElementById("camera-status").className = "camera-status active";
-    } catch (err) {
-        document.getElementById("camera-status").textContent = "Decode error: " + err.message;
-    }
-}
-
-function switchCamera(deviceId) {
-    if (!deviceId || !codeReader) return;
-    codeReader.reset();
-    startDecode(deviceId);
-}
-
-function stopCamera() {
-    if (codeReader) {
-        codeReader.reset();
-        codeReader = null;
-    }
-    document.getElementById("camera-status").textContent = "Camera stopped.";
-}
-
-// ---- USB Scanner: detect rapid keypress + Enter ----
-let usbBuffer = "";
-let usbTimer = null;
-document.addEventListener("keydown", (e) => {
-    if (currentMode !== "manual") return;
-    // USB scanners type very fast — buffer keystrokes
-    if (e.key === "Enter") {
-        if (usbBuffer.length >= 4) {
-            // Looks like a USB scanner — use the buffer
-            handleScannedBarcode(usbBuffer);
         }
-        usbBuffer = "";
-        clearTimeout(usbTimer);
-    } else if (e.key.length === 1) {
-        usbBuffer += e.key;
-        clearTimeout(usbTimer);
-        usbTimer = setTimeout(() => { usbBuffer = ""; }, 100); // reset if slow typing
-    }
-});
 
-// ---- Core scan handler ----
-function handleScannedBarcode(barcode) {
-    document.getElementById("barcode-input").value = barcode;
-    doScan(barcode);
-}
+        async function startNewSession() {
+            try {
+                const res = await fetch(`${API_URL}/session/new`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ payment_method: "UPI / Card Pre-Auth" })
+                });
+                const data = await res.json();
+                currentSessionId = data.session_id;
 
-// ---- Session ----
-async function startNewSession() {
-    stopCamera();
-    try {
-        const res = await fetch(`${API}/session/new`, { method: "POST" });
-        const data = await res.json();
-        currentSessionId = data.session_id;
-        document.getElementById("session-id-text").textContent = currentSessionId;
-        showToast("success", "Session Started", `Session ID: ${currentSessionId}`);
-        refreshCart();
-    } catch {
-        showToast("error", "Connection Error", "Cannot reach the backend. Is the server running?");
-    }
-}
+                document.getElementById("disp-session-id").textContent = currentSessionId;
+                document.getElementById("disp-track-id").textContent = data.person_track_id;
 
-// ---- Scan ----
-async function doScan(forcedBarcode) {
-    if (!currentSessionId) {
-        showToast("warning", "No Session", "Click 'New Session' first.");
-        return;
-    }
-    const barcode = forcedBarcode || document.getElementById("barcode-input").value.trim();
-    if (!barcode) {
-        showToast("warning", "Empty Barcode", "Please enter or scan a barcode.");
-        return;
-    }
+                document.getElementById("no-session-view").style.display = "none";
+                document.getElementById("active-session-view").style.display = "block";
+                document.getElementById("shelf-live-card").style.display = "block";
+                document.getElementById("scanner-card").style.display = "block";
+                document.getElementById("cart-card").style.display = "block";
 
-    try {
-        const res = await fetch(`${API}/app/scan`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: currentSessionId, barcode })
-        });
-        const data = await res.json();
-
-        if (data.status === "success") {
-            showToast("success", "Added to Cart!", data.message);
-            document.getElementById("barcode-input").value = "";
-            refreshCart();
-        } else if (data.status === "anomaly") {
-            showToast("error", "Anomaly Detected!", data.reason);
-        } else {
-            showToast("error", "Error", data.detail || "Unknown error.");
+                showToast("Entry Authorized", `Session ${currentSessionId} bound to ${data.person_track_id}`, "success");
+                loadCatalog();
+                updateCartState();
+            } catch (err) {
+                showToast("Connection Error", `Could not reach server at ${API_URL}`, "error");
+            }
         }
-    } catch {
-        showToast("error", "Connection Error", "Cannot reach the backend.");
-    }
-}
 
-// ---- Cart ----
-async function refreshCart() {
-    if (!currentSessionId) return;
-    try {
-        const res = await fetch(`${API}/app/cart/${currentSessionId}`);
-        const data = await res.json();
-        renderCart(data);
-    } catch { }
-}
+        function quickScan(code) {
+            document.getElementById("barcode-input").value = code;
+            scanBarcode();
+        }
 
-function renderCart(data) {
-    const body = document.getElementById("cart-body");
-    const checkoutArea = document.getElementById("checkout-area");
+        async function scanBarcode() {
+            if (!currentSessionId) {
+                showToast("Session Required", "Please start session first.", "error");
+                return;
+            }
 
-    if (data.status === "checked_out") {
-        body.innerHTML = `
-            <div class="checkout-screen">
-                <div class="check-icon">&#127881;</div>
-                <h2>Payment Complete!</h2>
-                <p style="color:var(--muted);margin-bottom:16px">Thank you for shopping.</p>
-                <div class="total-amount">$${data.total.toFixed(2)}</div>
-            </div>`;
-        checkoutArea.style.display = "none";
-        return;
-    }
+            const barcode = document.getElementById("barcode-input").value.trim();
+            if (!barcode) return;
 
-    if (!data.items || data.items.length === 0) {
-        body.innerHTML = `<div class="cart-empty">Your cart is empty. Scan an item to begin.</div>`;
-        checkoutArea.style.display = "none";
-        return;
-    }
+            try {
+                const res = await fetch(`${API_URL}/app/scan`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId, barcode: barcode })
+                });
 
-    body.innerHTML = data.items.map(item => `
-        <div class="cart-item">
-            <div>
-                <div class="cart-item-name">${item.name}</div>
-                <div class="cart-item-qty">Qty: ${item.quantity} x $${item.price.toFixed(2)}</div>
-            </div>
-            <div class="cart-item-price">$${item.subtotal.toFixed(2)}</div>
-        </div>
-    `).join("");
+                const data = await res.json();
+                if (res.status === 200 && data.status === "success") {
+                    showToast("Item Scanned", data.message, "success");
+                } else {
+                    showToast("Scan Blocked", data.detail || data.reason || "Scan failed validation.", "error");
+                }
 
-    document.getElementById("cart-total-amt").textContent = `$${data.total.toFixed(2)}`;
-    checkoutArea.style.display = "block";
-}
+                document.getElementById("barcode-input").value = "";
+                updateCartState();
+            } catch (err) {
+                showToast("Network Error", err.message, "error");
+            }
+        }
 
-// ---- Checkout ----
-async function doCheckout() {
-    if (!currentSessionId) return;
-    try {
-        const res = await fetch(`${API}/app/checkout`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: currentSessionId })
-        });
-        const data = await res.json();
-        renderCart({ ...data, status: "checked_out" });
-        showToast("success", "Checkout Complete!", `Total paid: $${data.total.toFixed(2)}`);
-    } catch {
-        showToast("error", "Connection Error", "Cannot reach the backend.");
-    }
-}
+        async function updateCartState() {
+            if (!currentSessionId) return;
 
-// ---- Toast ----
-function showToast(type, title, msg) {
-    const icons = { success: "&#10003;", error: "&#33;", warning: "&#9888;" };
-    const container = document.getElementById("toast-container");
-    const toast = document.createElement("div");
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `
-        <span class="toast-icon">${icons[type]}</span>
-        <div class="toast-body">
-            <div class="toast-title">${title}</div>
-            <div class="toast-msg">${msg}</div>
-        </div>`;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
+            try {
+                // Fetch Live Camera Shelf State
+                const shelfRes = await fetch(`${API_URL}/cv/shelf-state`);
+                const shelfData = await shelfRes.json();
+                const shelfListEl = document.getElementById("shelf-items-list");
+                
+                if (shelfData.items && shelfData.items.length > 0) {
+                    shelfListEl.innerHTML = shelfData.items.map(item => `
+                        <span class="shelf-item-tag">📦 ${item.toUpperCase()} (Resting on Shelf)</span>
+                    `).join("");
+                } else {
+                    shelfListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--danger-red);">🚨 SHELF EMPTY (Item Picked by User)</span>`;
+                }
 
-// ---- Init ----
-document.addEventListener("DOMContentLoaded", () => {
-    buildProductGrid();
-    document.getElementById("barcode-input").addEventListener("keydown", e => {
-        if (e.key === "Enter") doScan();
-    });
-    startNewSession();
-});
-</script>
+                // Fetch Cart & Ledger State
+                const res = await fetch(`${API_URL}/app/cart/${currentSessionId}`);
+                const data = await res.json();
+
+                const trustEl = document.getElementById("disp-trust-score");
+                trustEl.textContent = data.trust_score;
+                trustEl.style.color = data.trust_score >= 85 ? "var(--success-green)" : data.trust_score >= 70 ? "var(--warning-amber)" : "var(--danger-red)";
+
+                const audit = data.ledger_audit;
+                const unresEl = document.getElementById("disp-unresolved-picks");
+                unresEl.textContent = audit.unresolved_picks;
+                unresEl.style.color = audit.unresolved_picks === 0 ? "var(--success-green)" : "var(--danger-red)";
+
+                // Render Cart List
+                const container = document.getElementById("cart-items-container");
+                if (data.items.length === 0) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 0.85rem;">Your cart is empty. Pick up an item from the shelf and scan its barcode.</div>`;
+                } else {
+                    container.innerHTML = data.items.map(item => `
+                        <div class="cart-item-row">
+                            <div class="item-main">
+                                <div class="item-icon">${item.emoji || '📦'}</div>
+                                <div>
+                                    <div class="item-title">
+                                        ${item.name}
+                                        <span class="badge badge-verified">
+                                            ${item.verification_status}
+                                        </span>
+                                    </div>
+                                    <div class="item-sub">Qty: ${item.quantity} × $${item.price.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="item-price">$${item.subtotal.toFixed(2)}</div>
+                        </div>
+                    `).join("");
+                }
+
+                document.getElementById("disp-item-count").textContent = `${data.items.length} items`;
+                document.getElementById("disp-total-amount").textContent = `$${data.total.toFixed(2)}`;
+
+            } catch (err) {
+                console.error("Error updating cart", err);
+            }
+        }
+
+        async function executeCheckout() {
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/checkout`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+
+                const data = await res.json();
+                const isApproved = data.gate_decision === "GATE_OPEN_AUTOMATIC";
+
+                document.getElementById("modal-status-icon").textContent = isApproved ? "🟢" : "🔴";
+                document.getElementById("modal-status-title").textContent = isApproved ? "Exit Gate Released" : "100% Security Hold";
+                document.getElementById("modal-status-sub").textContent = data.gate_status_msg;
+
+                document.getElementById("modal-receipt-body").innerHTML = `
+                    <div style="font-weight:700; margin-bottom:6px; color: var(--text-primary);">Transaction Receipt</div>
+                    <div>Receipt ID: <b>${data.payment_receipt.transaction_id}</b></div>
+                    <div>Person Track ID: <b>${data.person_track_id}</b></div>
+                    <div>Total Charged: <b>$${data.payment_receipt.amount_charged.toFixed(2)}</b></div>
+                    <div>Final Trust Score: <b>${data.trust_score}/100</b></div>
+                    <div>Unresolved Picks: <b>${data.unresolved_picks}</b></div>
+                    <div style="margin-top:8px; color: var(--brand-blue); font-weight:600;">Payment Status: ${data.payment_receipt.payment_status}</div>
+                `;
+
+                document.getElementById("exit-modal-el").classList.add("active");
+            } catch (err) {
+                showToast("Checkout Failure", err.message, "error");
+            }
+        }
+
+        function resetAppSession() {
+            document.getElementById("exit-modal-el").classList.remove("active");
+            location.reload();
+        }
+
+        function showToast(title, body, status) {
+            const toast = document.getElementById("toast-el");
+            document.getElementById("toast-title").textContent = title;
+            document.getElementById("toast-msg").textContent = body;
+
+            toast.style.borderColor = status === "success" ? "var(--success-green)" : status === "warning" ? "var(--warning-amber)" : "var(--danger-red)";
+            toast.classList.add("active");
+
+            setTimeout(() => { toast.classList.remove("active"); }, 3000);
+        }
+
+        // Poll cart & live camera shelf state every 1.5s
+        setInterval(() => {
+            if (currentSessionId) updateCartState();
+        }, 1500);
+
+        // Initial catalog load
+        loadCatalog();
+    </script>
 </body>
 </html>
