@@ -1,23 +1,16 @@
 # backend/main.py
-# FastAPI backend — the central brain of the Scan & Go system.
-#
-# Endpoints:
-#   POST /session/new          — Start a new shopping session
-#   POST /cv/pick-event        — CV Node reports what item was picked up
-#   POST /app/scan             — App sends a scanned barcode
-#   GET  /app/cart/{session_id}— App retrieves the virtual cart
-#   POST /app/checkout         — Checkout and finalize the cart
-#   GET  /products             — List all products in the database
+# FastAPI backend — 100% Loss Prevention Engine for Scan & Go
+# Features direct HTML file response for root '/' and '/ui' routes so app loads instantly on phone & PC!
 
 import sys
 import io
 
-# Force UTF-8 output on Windows to prevent emoji/unicode encoding crashes
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from datetime import datetime
 import uuid
@@ -27,9 +20,8 @@ import os
 from database import init_db, get_connection
 
 # --- App Setup ---
-app = FastAPI(title="Scan & Go API", version="1.0.0")
+app = FastAPI(title="Scan & Go Loss Prevention API", version="3.6.0")
 
-# Allow requests from the web app (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,188 +29,294 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve the web app frontend from the /app folder
 app_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app")
 if os.path.exists(app_dir):
     app.mount("/ui", StaticFiles(directory=app_dir, html=True), name="frontend")
 
-# Initialize DB on startup
 @app.on_event("startup")
 def startup():
     init_db()
-    print("[SERVER] Scan & Go API is running.")
+    print("[SERVER] Scan & Go Loss Prevention API v3.6 is running.")
 
-# --- Request Models ---
+# --- Direct UI Route Handlers (Foolproof Web Access) ---
+@app.get("/")
+def root():
+    index_path = os.path.join(app_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": "Scan & Go Loss Prevention API v3.6 is running."}
+
+@app.get("/ui")
+def ui_root():
+    index_path = os.path.join(app_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return RedirectResponse(url="/ui/")
+
+# --- Live Camera Shelf State Cache ---
+current_shelf_inventory = {"items": [], "updated_at": None}
+
+# --- Models ---
+class NewSessionRequest(BaseModel):
+    payment_method: str = "UPI / Card Pre-Auth"
+
 class CVPickEvent(BaseModel):
-    session_id: str
-    cv_class: str          # e.g., "bottle"
-    event_type: str        # "picked" or "returned"
+    session_id: str = "LATEST"
+    cv_class: str
+    confidence: float = 1.0
+    event_type: str              # "picked" or "returned"
+    shelf_slot: str = "Shelf-A1"
+    weight_delta_g: float = 0.0
+
+class ShelfStateRequest(BaseModel):
+    items: list = []
 
 class ScanRequest(BaseModel):
     session_id: str
     barcode: str
 
-# --- Helper ---
-ANOMALY_WINDOW_SECONDS = 20  # How long (in seconds) to look back for a CV event
+def recalculate_trust_score(conn: sqlite3.Connection, session_id: str):
+    """Calculates deterministic Trust Score based on active pick ledger."""
+    score = 100
+    
+    mismatches = conn.execute(
+        "SELECT COUNT(*) FROM anomaly_log WHERE session_id = ? AND anomaly_type IN ('CLASS_MISMATCH', 'NO_CAMERA_PICK')",
+        (session_id,)
+    ).fetchone()[0]
+    score -= (mismatches * 20)
 
-def get_recent_cv_event(session_id: str, conn: sqlite3.Connection):
-    """Returns the most recent 'picked' CV event within the time window."""
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT cv_class, timestamp FROM cv_events
-        WHERE session_id = ? AND event_type = 'picked'
-        ORDER BY timestamp DESC LIMIT 1
-    """, (session_id,))
-    row = cursor.fetchone()
-    if not row:
-        return None
-    event_time = datetime.fromisoformat(row["timestamp"])
-    seconds_ago = (datetime.now() - event_time).total_seconds()
-    if seconds_ago <= ANOMALY_WINDOW_SECONDS:
-        return row["cv_class"]
-    return None  # Too old to be relevant
+    picks = conn.execute(
+        "SELECT cv_class FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)
+    ).fetchall()
+    
+    returns = conn.execute(
+        "SELECT cv_class FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)
+    ).fetchall()
+    
+    scans = conn.execute("""
+        SELECT p.cv_class FROM cart_items ci 
+        JOIN products p ON ci.product_id = p.id 
+        WHERE ci.session_id = ?
+    """, (session_id,)).fetchall()
+
+    pick_list = [p["cv_class"] for p in picks]
+    resolved_list = [r["cv_class"] for r in returns] + [s["cv_class"] for s in scans]
+
+    unresolved_count = 0
+    for item in pick_list:
+        if item in resolved_list:
+            resolved_list.remove(item)
+        else:
+            unresolved_count += 1
+
+    score -= (unresolved_count * 50)
+    score = max(0, min(100, score))
+
+    conn.execute("UPDATE sessions SET trust_score = ? WHERE id = ?", (score, session_id))
+    conn.commit()
+    return score
+
+def log_anomaly(conn, session_id, picked_cv_class, scanned_barcode, anomaly_type, reason):
+    conn.execute(
+        """INSERT INTO anomaly_log
+           (session_id, picked_cv_class, scanned_barcode, anomaly_type, reason, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (session_id, picked_cv_class, scanned_barcode, anomaly_type, reason, datetime.now().isoformat())
+    )
+    conn.commit()
 
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
 
-@app.get("/")
-def root():
-    return {"message": "Scan & Go API is running! Visit /docs for API explorer."}
-
 @app.get("/products")
 def list_products():
-    """Returns all products in the shelf database."""
+    """Returns products catalog (Bottle & Banana)."""
     conn = get_connection()
     products = conn.execute("SELECT * FROM products").fetchall()
     conn.close()
     return [dict(p) for p in products]
 
-# --- Session Management ---
+@app.get("/anomalies/{session_id}")
+def get_anomalies(session_id: str):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM anomaly_log WHERE session_id = ? ORDER BY timestamp DESC",
+        (session_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+# --- 1. Session Entry QR Scan ---
 @app.post("/session/new")
-def new_session():
-    """Creates a new shopping session for a customer."""
+def new_session(req: NewSessionRequest = NewSessionRequest()):
     session_id = str(uuid.uuid4())[:8].upper()
+    person_track_id = f"TRK-{uuid.uuid4().hex[:4].upper()}"
+    
     conn = get_connection()
     conn.execute(
-        "INSERT INTO sessions (id, status, created_at) VALUES (?, 'active', ?)",
-        (session_id, datetime.now().isoformat())
+        """INSERT INTO sessions 
+           (id, person_track_id, preauth_status, payment_method, trust_score, status, created_at) 
+           VALUES (?, ?, 'AUTHORIZED ($50 Hold)', ?, 100, 'active', ?)""",
+        (session_id, person_track_id, req.payment_method, datetime.now().isoformat())
     )
     conn.commit()
     conn.close()
-    print(f"[SESSION] New session started: {session_id}")
-    return {"session_id": session_id, "status": "active"}
+    print(f"[SESSION] New Entry QR Scan: Session {session_id} bound to {person_track_id}")
+    return {
+        "session_id": session_id,
+        "person_track_id": person_track_id,
+        "preauth_status": "AUTHORIZED ($50 Hold)",
+        "trust_score": 100,
+        "status": "active"
+    }
 
-# --- CV Node Endpoint ---
+@app.get("/session/latest")
+def get_latest_session():
+    """Returns the most recent active session."""
+    conn = get_connection()
+    session = conn.execute("SELECT * FROM sessions WHERE status = 'active' ORDER BY created_at DESC LIMIT 1").fetchone()
+    conn.close()
+    if session:
+        return dict(session)
+    raise HTTPException(status_code=404, detail="No active session found.")
+
+# --- 2. Live Camera Shelf State & Pick Event Broadcasting ---
+@app.post("/cv/shelf-state")
+def update_shelf_state(req: ShelfStateRequest):
+    global current_shelf_inventory
+    current_shelf_inventory = {
+        "items": req.items,
+        "updated_at": datetime.now().isoformat()
+    }
+    return {"status": "updated", "items": req.items}
+
+@app.get("/cv/shelf-state")
+def get_shelf_state():
+    return current_shelf_inventory
+
 @app.post("/cv/pick-event")
 def cv_pick_event(event: CVPickEvent):
     """
-    Called by the CV Node (camera) when it detects an item being picked up.
-    Logs this event so the anomaly checker can use it.
+    Ingests physical pick/return events.
+    Automatically posts to ALL active shopping sessions!
     """
     conn = get_connection()
-    session = conn.execute("SELECT id FROM sessions WHERE id = ?", (event.session_id,)).fetchone()
-    if not session:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Session not found.")
+    active_sessions = conn.execute("SELECT id FROM sessions WHERE status = 'active'").fetchall()
+    
+    target_sessions = [s["id"] for s in active_sessions]
+    if event.session_id and event.session_id != "LATEST" and event.session_id not in target_sessions:
+        target_sessions.append(event.session_id)
 
-    conn.execute(
-        "INSERT INTO cv_events (session_id, cv_class, event_type, timestamp) VALUES (?, ?, ?, ?)",
-        (event.session_id, event.cv_class, event.event_type, datetime.now().isoformat())
-    )
+    if not target_sessions:
+        conn.close()
+        return {"status": "ignored", "reason": "No active sessions found."}
+
+    for sid in target_sessions:
+        conn.execute(
+            """INSERT INTO cv_events (session_id, cv_class, confidence, event_type, timestamp)
+               VALUES (?, ?, ?, ?, ?)""",
+            (sid, event.cv_class, event.confidence, event.event_type, datetime.now().isoformat())
+        )
+        recalculate_trust_score(conn, sid)
+
     conn.commit()
     conn.close()
-    print(f"[CV EVENT] Session {event.session_id}: {event.event_type} -> {event.cv_class}")
-    return {"status": "logged", "cv_class": event.cv_class, "event_type": event.event_type}
+    
+    icon = "👆 PICKED OFF SHELF" if event.event_type == "picked" else "↩️ PUT BACK ON SHELF"
+    print(f"[SHELF CAMERA API] Broadcast {icon} -> {event.cv_class.upper()} to Active Sessions: {target_sessions}")
+    return {
+        "status": "logged",
+        "event_type": event.event_type,
+        "cv_class": event.cv_class,
+        "target_sessions": target_sessions
+    }
 
-# --- App Scan Endpoint ---
+# --- 3. App Barcode Scan Endpoint ---
 @app.post("/app/scan")
 def scan_item(req: ScanRequest):
-    """
-    Called by the mobile app when the customer scans a barcode.
-    Performs anomaly detection by comparing with the last CV event.
-    If valid, adds the item to the virtual cart.
-    """
     conn = get_connection()
 
-    # 1. Validate session
     session = conn.execute("SELECT * FROM sessions WHERE id = ?", (req.session_id,)).fetchone()
     if not session:
         conn.close()
         raise HTTPException(status_code=404, detail="Session not found.")
-    if session["status"] != "active":
-        conn.close()
-        raise HTTPException(status_code=400, detail="Session is already checked out.")
 
-    # 2. Look up the barcode in the database
     product = conn.execute("SELECT * FROM products WHERE barcode = ?", (req.barcode,)).fetchone()
     if not product:
+        log_anomaly(conn, req.session_id, None, req.barcode,
+                    "INVALID_PRODUCT", f"Barcode '{req.barcode}' does not exist in store.")
         conn.close()
-        raise HTTPException(status_code=404, detail=f"Barcode '{req.barcode}' not found.")
+        raise HTTPException(status_code=400, detail=f"Barcode '{req.barcode}' is invalid.")
 
     product = dict(product)
+    expected_class = product["cv_class"]
 
-    # 3. Get the most recent CV event (what the camera saw)
-    recent_cv_class = get_recent_cv_event(req.session_id, conn)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(*) FROM cv_events
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked'
+    """, (req.session_id, expected_class))
+    pick_count = cursor.fetchone()[0]
 
-    # 4. Anomaly Detection
-    if recent_cv_class is None:
-        conn.execute(
-            "INSERT INTO anomaly_log (session_id, picked_cv_class, scanned_barcode, timestamp) VALUES (?, ?, ?, ?)",
-            (req.session_id, None, req.barcode, datetime.now().isoformat())
-        )
-        conn.commit()
+    cursor.execute("""
+        SELECT COUNT(*) FROM cv_events
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned'
+    """, (req.session_id, expected_class))
+    return_count = cursor.fetchone()[0]
+
+    cart_qty_row = conn.execute("""
+        SELECT SUM(quantity) FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        WHERE ci.session_id = ? AND p.cv_class = ?
+    """, (req.session_id, expected_class)).fetchone()[0]
+    scanned_qty = cart_qty_row if cart_qty_row else 0
+
+    available_unscanned_picks = pick_count - return_count - scanned_qty
+
+    if available_unscanned_picks <= 0:
+        log_anomaly(conn, req.session_id, None, req.barcode,
+                    "NO_CAMERA_PICK",
+                    f"No active physical pick detected for '{product['name']}'. Item is still resting on shelf.")
+        recalculate_trust_score(conn, req.session_id)
         conn.close()
-        print(f"[ANOMALY] Session {req.session_id}: No camera event before scan of '{req.barcode}'")
-        return {
-            "status": "anomaly",
-            "reason": "No item pick detected by camera before scan.",
-            "scanned": product["name"],
-            "camera_saw": None
-        }
+        raise HTTPException(status_code=400, detail=f"Security Alert: No physical pickup detected for '{product['name']}'. Item is still resting on the shelf!")
 
-    if recent_cv_class != product["cv_class"]:
-        conn.execute(
-            "INSERT INTO anomaly_log (session_id, picked_cv_class, scanned_barcode, timestamp) VALUES (?, ?, ?, ?)",
-            (req.session_id, recent_cv_class, req.barcode, datetime.now().isoformat())
-        )
-        conn.commit()
-        conn.close()
-        print(f"[ANOMALY] Session {req.session_id}: Camera={recent_cv_class}, Scan={product['cv_class']}")
-        return {
-            "status": "anomaly",
-            "reason": f"Camera saw '{recent_cv_class}' but you scanned '{product['name']}'",
-            "scanned": product["name"],
-            "camera_saw": recent_cv_class
-        }
-
-    # 5. All clear — add to cart
+    # Match confirmed — Add to cart as VERIFIED
     existing = conn.execute(
         "SELECT id, quantity FROM cart_items WHERE session_id = ? AND product_id = ?",
         (req.session_id, product["id"])
     ).fetchone()
 
     if existing:
-        conn.execute("UPDATE cart_items SET quantity = quantity + 1 WHERE id = ?", (existing["id"],))
+        conn.execute(
+            "UPDATE cart_items SET quantity = quantity + 1, verification_status = 'VERIFIED' WHERE id = ?",
+            (existing["id"],)
+        )
     else:
         conn.execute(
-            "INSERT INTO cart_items (session_id, product_id, quantity, added_at) VALUES (?, ?, 1, ?)",
+            """INSERT INTO cart_items 
+               (session_id, product_id, quantity, verification_status, added_at) 
+               VALUES (?, ?, 1, 'VERIFIED', ?)""",
             (req.session_id, product["id"], datetime.now().isoformat())
         )
 
     conn.commit()
+    trust_score = recalculate_trust_score(conn, req.session_id)
     conn.close()
-    print(f"[ADDED] Session {req.session_id}: {product['name']} added to cart.")
+
+    print(f"[SCAN SUCCESS] Session {req.session_id}: {product['name']} (VERIFIED) | Trust Score: {trust_score}")
     return {
         "status": "success",
-        "message": f"{product['name']} added to cart!",
-        "product": product
+        "verification_status": "VERIFIED",
+        "message": f"✅ {product['name']} verified and added to cart!",
+        "product": product,
+        "trust_score": trust_score
     }
 
-# --- Get Cart ---
+# --- 4. Get Cart State & Pick Ledger ---
 @app.get("/app/cart/{session_id}")
 def get_cart(session_id: str):
-    """Returns the full virtual cart for a session."""
     conn = get_connection()
     session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if not session:
@@ -226,7 +324,7 @@ def get_cart(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found.")
 
     items = conn.execute("""
-        SELECT p.name, p.price, p.barcode, ci.quantity,
+        SELECT p.name, p.price, p.barcode, p.emoji, ci.quantity, ci.verification_status,
                (p.price * ci.quantity) as subtotal
         FROM cart_items ci
         JOIN products p ON ci.product_id = p.id
@@ -235,13 +333,34 @@ def get_cart(session_id: str):
 
     cart = [dict(i) for i in items]
     total = sum(i["subtotal"] for i in cart)
+    
+    # Audit Pick Ledger
+    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
+    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+    scans = sum(i["quantity"] for i in cart)
+    
+    unresolved_picks = max(0, picks - returns - scans)
+    
     conn.close()
-    return {"session_id": session_id, "items": cart, "total": round(total, 2), "status": session["status"]}
+    return {
+        "session_id": session_id,
+        "person_track_id": session["person_track_id"],
+        "preauth_status": session["preauth_status"],
+        "trust_score": session["trust_score"],
+        "items": cart,
+        "total": round(total, 2),
+        "ledger_audit": {
+            "total_picks": picks,
+            "total_returns": returns,
+            "total_scans": scans,
+            "unresolved_picks": unresolved_picks
+        },
+        "status": session["status"]
+    }
 
-# --- Checkout ---
+# --- 5. Checkout & Exit Gate Audit ---
 @app.post("/app/checkout")
 def checkout(req: dict):
-    """Finalizes the cart and marks the session as checked out."""
     session_id = req.get("session_id")
     conn = get_connection()
     session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
@@ -250,7 +369,7 @@ def checkout(req: dict):
         raise HTTPException(status_code=404, detail="Session not found.")
 
     items = conn.execute("""
-        SELECT p.name, p.price, ci.quantity, (p.price * ci.quantity) as subtotal
+        SELECT p.name, p.price, ci.quantity, ci.verification_status, (p.price * ci.quantity) as subtotal
         FROM cart_items ci JOIN products p ON ci.product_id = p.id
         WHERE ci.session_id = ?
     """, (session_id,)).fetchall()
@@ -258,8 +377,37 @@ def checkout(req: dict):
     cart = [dict(i) for i in items]
     total = sum(i["subtotal"] for i in cart)
 
+    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
+    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+    scans = sum(i["quantity"] for i in cart)
+    
+    unresolved_picks = max(0, picks - returns - scans)
+    trust_score = session["trust_score"]
+
+    if unresolved_picks == 0 and trust_score >= 80:
+        gate_decision = "GATE_OPEN_AUTOMATIC"
+        gate_status_msg = "🟢 Exit Gate Released — Pre-Authorized Card Charged Automatically"
+    else:
+        gate_decision = "GATE_LOCKED_SECURITY_AUDIT"
+        gate_status_msg = f"🔴 100% Security Hold — Unresolved Shelf Picks: {unresolved_picks}, Trust Score: {trust_score}"
+
     conn.execute("UPDATE sessions SET status = 'checked_out' WHERE id = ?", (session_id,))
     conn.commit()
     conn.close()
-    print(f"[CHECKOUT] Session {session_id} checked out. Total: ${total:.2f}")
-    return {"status": "checked_out", "session_id": session_id, "items": cart, "total": round(total, 2)}
+
+    print(f"[EXIT RECONCILIATION] Session {session_id} -> Gate: {gate_decision}")
+    return {
+        "status": "checked_out",
+        "session_id": session_id,
+        "person_track_id": session["person_track_id"],
+        "payment_receipt": {
+            "amount_charged": round(total, 2),
+            "payment_status": "PAID via Pre-Authorized Card/UPI",
+            "transaction_id": f"TXN-{uuid.uuid4().hex[:8].upper()}"
+        },
+        "trust_score": trust_score,
+        "unresolved_picks": unresolved_picks,
+        "gate_decision": gate_decision,
+        "gate_status_msg": gate_status_msg,
+        "items": cart
+    }

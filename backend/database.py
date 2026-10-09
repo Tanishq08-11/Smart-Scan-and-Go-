@@ -1,5 +1,5 @@
 # backend/database.py
-# Handles SQLite database creation and all DB operations
+# Handles SQLite database creation and schema migrations for Scan & Go
 
 import sqlite3
 import os
@@ -13,87 +13,84 @@ def get_connection():
     return conn
 
 def init_db():
-    """Creates all tables and seeds the 10 shelf products."""
+    """Creates all tables and seeds the 2 target shelf products (Bottle & Banana)."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # --- Products Table ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             name        TEXT NOT NULL,
             barcode     TEXT UNIQUE NOT NULL,
             price       REAL NOT NULL,
-            cv_class    TEXT NOT NULL  -- The YOLOv8 class name this product maps to
+            cv_class    TEXT NOT NULL,
+            weight_g    REAL DEFAULT 250.0,
+            shelf_slot  TEXT DEFAULT 'Shelf-A1',
+            emoji       TEXT DEFAULT '📦'
         )
     """)
 
-    # --- Sessions Table (represents one customer shopping trip) ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
-            id          TEXT PRIMARY KEY,
-            status      TEXT NOT NULL DEFAULT 'active',  -- active | checked_out
-            created_at  TEXT NOT NULL
+            id               TEXT PRIMARY KEY,
+            person_track_id  TEXT,
+            preauth_status   TEXT DEFAULT 'AUTHORIZED',
+            payment_method   TEXT DEFAULT 'UPI / Card Pre-Auth',
+            trust_score      INTEGER DEFAULT 100,
+            status           TEXT NOT NULL DEFAULT 'active',
+            created_at       TEXT NOT NULL
         )
     """)
 
-    # --- Cart Items Table ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cart_items (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id  TEXT NOT NULL,
-            product_id  INTEGER NOT NULL,
-            quantity    INTEGER NOT NULL DEFAULT 1,
-            added_at    TEXT NOT NULL,
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id          TEXT NOT NULL,
+            product_id          INTEGER NOT NULL,
+            quantity            INTEGER NOT NULL DEFAULT 1,
+            verification_status TEXT DEFAULT 'VERIFIED',
+            added_at            TEXT NOT NULL,
             FOREIGN KEY (session_id) REFERENCES sessions(id),
             FOREIGN KEY (product_id) REFERENCES products(id)
         )
     """)
 
-    # --- CV Event Log Table (what the camera saw and when) ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cv_events (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id  TEXT NOT NULL,
-            cv_class    TEXT NOT NULL,   -- e.g., "bottle"
-            event_type  TEXT NOT NULL,   -- "picked" or "returned"
+            cv_class    TEXT NOT NULL,
+            confidence  REAL NOT NULL DEFAULT 1.0,
+            event_type  TEXT NOT NULL, -- 'picked', 'returned', 'reconciled'
             timestamp   TEXT NOT NULL,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
     """)
 
-    # --- Anomaly Log Table ---
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS anomaly_log (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id      TEXT NOT NULL,
-            picked_cv_class TEXT,        -- what camera saw
-            scanned_barcode TEXT,        -- what was scanned
+            picked_cv_class TEXT,
+            scanned_barcode TEXT,
+            anomaly_type    TEXT NOT NULL DEFAULT 'UNKNOWN',
+            reason          TEXT,
             timestamp       TEXT NOT NULL,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
     """)
 
-    # --- Seed 10 Products (only if table is empty) ---
-    cursor.execute("SELECT COUNT(*) FROM products")
-    if cursor.fetchone()[0] == 0:
-        products = [
-            ("Coca-Cola 500ml",    "1111", 2.50, "bottle"),
-            ("Fresh Apple",        "2222", 0.80, "apple"),
-            ("Store Coffee Mug",   "3333", 5.99, "cup"),
-            ("Notebook",           "4444", 3.50, "book"),
-            ("Smartphone Case",    "5555", 15.00, "cell phone"),
-            ("Wireless Mouse",     "6666", 25.00, "mouse"),
-            ("Crafting Scissors",  "7777", 4.25, "scissors"),
-            ("Oral-B Toothbrush",  "8888", 2.99, "toothbrush"),
-            ("Fresh Orange",       "9999", 0.75, "orange"),
-            ("Chiquita Banana",    "0000", 0.50, "banana"),
-        ]
-        cursor.executemany(
-            "INSERT INTO products (name, barcode, price, cv_class) VALUES (?, ?, ?, ?)",
-            products
-        )
-        print("[DB] Seeded 10 products into the database.")
+    # Force re-seed products to strictly match the 2 required items (bottle & banana)
+    cursor.execute("DELETE FROM products")
+    products = [
+        ("Coca-Cola 500ml", "1111", 2.50, "bottle", 500.0, "Shelf-A1", "🥤"),
+        ("Chiquita Banana", "0000", 0.50, "banana", 120.0, "Shelf-A2", "🍌"),
+    ]
+    cursor.executemany(
+        "INSERT INTO products (name, barcode, price, cv_class, weight_g, shelf_slot, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        products
+    )
+    print("[DB] Seeded exactly 2 products: Bottle (1111) & Banana (0000).")
 
     conn.commit()
     conn.close()
