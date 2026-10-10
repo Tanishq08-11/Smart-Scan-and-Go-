@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Smart Scan & Go — Shopping Cart & Security</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-body:       #F8FAFC;
+            --bg-card:       #FFFFFF;
+            --border:        #E2E8F0;
+            --text-primary:  #0F172A;
+            --text-secondary:#475569;
+            --text-muted:    #94A3B8;
+            --brand-blue:    #2563EB;
+            --brand-blue-hover:#1D4ED8;
+            --success-green: #059669;
+            --success-bg:    #ECFDF5;
+            --warning-amber: #D97706;
+            --warning-bg:    #FFFBEB;
+            --danger-red:    #DC2626;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px;
+        }
+
+        .top-navbar {
+            width: 100%;
+            max-width: 520px;
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .brand-logo {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0F172A;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .brand-logo span {
+            background: var(--brand-blue);
+            color: #FFFFFF;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .system-status {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--success-green);
+            background: var(--success-bg);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(5,150,105,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success-green); }
+
+        .app-container {
+            width: 100%;
+            max-width: 520px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn-brand { background: var(--brand-blue); color: #FFFFFF; width: 100%; }
+        .btn-brand:hover { background: var(--brand-blue-hover); }
+        .btn-success { background: var(--success-green); color: #FFFFFF; width: 100%; }
+        .btn-outline { background: #FFFFFF; border: 1px solid var(--border); color: var(--text-primary); }
+
+        .form-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        .form-input {
+            flex: 1;
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .form-input:focus { border-color: var(--brand-blue); }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .info-cell { background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+        .info-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        .info-value { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); margin-top: 2px; }
+
+        .shelf-live-box {
+            background: #F8FAFC;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .shelf-item-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-right: 6px;
+            margin-top: 6px;
+        }
+
+        .sample-barcodes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .barcode-chip {
+            background: #F1F5F9;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .barcode-chip:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
+
+        .cart-list { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; }
+        .cart-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #F8FAFC;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .item-main { display: flex; align-items: center; gap: 10px; }
+        .item-icon { font-size: 1.4rem; }
+        .item-title { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .item-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+        .item-price { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
+
+        .badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-left: 4px; }
+        .badge-verified { background: var(--success-bg); color: var(--success-green); border: 1px solid rgba(5,150,105,0.3); }
+
+        .total-row { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 12px; }
+        .total-label { font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); }
+        .total-amount { font-size: 1.4rem; font-weight: 800; color: var(--brand-blue); }
+
+        .toast-notification {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0; z-index: 1000;
+        }
+        .toast-notification.active { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.6); display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 2000; padding: 16px;
+        }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-dialog { background: #FFFFFF; border-radius: 12px; padding: 20px; width: 100%; max-width: 440px; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navbar -->
+    <div class="top-navbar">
+        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div class="brand-logo">🛒 SMART SCAN & GO <span>Enterprise</span></div>
+            <div class="system-status"><div class="status-dot"></div> Live Camera API</div>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; line-height: 1.3;">
+            An intelligent computer vision & sensor-fusion security layer that cross-references a customer's physical shelf interactions with their smartphone barcode scans in real-time.
+        </div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Card 1: Active Store Entry Session -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">1. STORE ENTRY GATE AUTHORIZATION</div>
+                <div class="badge badge-verified">PRE-AUTH HOLD ($50)</div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-cell">
+                    <div class="info-label">ACTIVE SESSION ID</div>
+                    <div class="info-value" id="disp-session-id" style="font-family: monospace;">-</div>
+                </div>
+                <div class="info-cell">
+                    <div class="info-label">PERSON REID TRACK ID</div>
+                    <div class="info-value" id="disp-track-id" style="font-family: monospace; color: var(--brand-blue);">-</div>
+                </div>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 600; text-align: center; margin-top: 4px;">
+                🟢 Entry Authorized & Card Hold Active ($50.00) — Shopping Cart Unlocked
+            </div>
+        </div>
+
+        <!-- Card 2: Smart Camera Shelf Analysis -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">2. SMART CAMERA SHELF ANALYSIS</div>
+                <div style="font-size: 0.75rem; color: var(--brand-blue); font-weight: 600;">Live AI Feed</div>
+            </div>
+
+            <!-- Section 2A: Items Resting on Desk -->
+            <div class="shelf-live-box">
+                <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                    <span>📦 ITEMS CURRENTLY RESTING ON DESK / SHELF:</span>
+                    <span style="color: var(--success-green); font-weight: 600;">VISION ACTIVE</span>
+                </div>
+                <div id="shelf-items-list">
+                    <span class="shelf-item-tag">🔍 Analyzing shelf vision feed...</span>
+                </div>
+            </div>
+
+            <!-- Section 2B: Items Picked Off Desk (Ready to Scan) -->
+            <div class="shelf-live-box" style="background: #FFFBEB; border-color: #FDE68A;">
+                <div style="font-size: 0.68rem; font-weight: 700; color: #92400E; text-transform: uppercase; margin-bottom: 6px;">
+                    🚨 ITEMS PICKED OFF DESK (READY TO SCAN):
+                </div>
+                <div id="picked-items-list">
+                    <span class="shelf-item-tag" style="color: var(--success-green);">✅ 0 Picked Items — All Desk Objects Accounted For</span>
+                </div>
+            </div>
+
+            <!-- Section 2C: Live Camera Event Audit Stream -->
+            <div style="background: #1E293B; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.72rem; color: #F8FAFC;">
+                <div style="color: #94A3B8; font-weight: 700; margin-bottom: 4px;">📹 LIVE CAMERA VISION AUDIT STREAM:</div>
+                <div id="camera-event-stream" style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="color: #64748B;">Waiting for camera state transitions...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Mobile Barcode Scanner -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">3. MOBILE BARCODE SCANNER</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">Trust Score: <b id="disp-trust-score" style="color: var(--success-green);">100</b>/100</div>
+            </div>
+
+            <div class="form-group">
+                <input type="text" id="barcode-input" class="form-input" placeholder="Scan or type product barcode (e.g. 1111)" />
+                <button class="btn btn-brand" onclick="scanBarcode()" style="width: auto;">Scan Item</button>
+            </div>
+
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 8px;">
+                AVAILABLE PRODUCTS ON DESK (TAP BARCODE TO QUICK SCAN):
+            </div>
+            <div class="sample-barcodes" id="dynamic-catalog-chips">
+                <span class="barcode-chip" onclick="quickScan('1111')">🥤 1111 (Water Bottle 500ml $2.50)</span>
+                <span class="barcode-chip" onclick="quickScan('2222')">📱 2222 (Smartphone Pro $699.00)</span>
+                <span class="barcode-chip" onclick="quickScan('3333')">📖 3333 (Hardcover Book $15.00)</span>
+            </div>
+        </div>
+
+        <!-- Card 4: Cart List & Ledger Audit -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">4. YOUR SHOPPING CART</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                    Unresolved Picks: <b id="disp-unresolved-picks" style="color: var(--success-green);">0</b> | Items: <b id="disp-item-count">0</b>
+                </div>
+            </div>
+
+            <div class="cart-list" id="cart-items-container">
+                <div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.82rem;">
+                    Your cart is empty. Pick up an item from the shelf and scan its barcode.
+                </div>
+            </div>
+
+            <div class="total-row">
+                <div>
+                    <div class="total-label">Total Amount</div>
+                    <div class="total-amount" id="disp-total-amount">$0.00</div>
+                </div>
+                <button class="btn btn-success" onclick="executeCheckout()" style="width: auto; padding: 12px 24px;">
+                    💳 Checkout & Exit Gate
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Exit Reconciliation Modal -->
+    <div class="modal-backdrop" id="exit-modal-el">
+        <div class="modal-dialog">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="font-size: 2rem;" id="modal-status-icon">🟢</div>
+                <div>
+                    <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-primary);" id="modal-status-title">Exit Gate Released</h3>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="modal-status-sub">Ledger verified</div>
+                </div>
+            </div>
+
+            <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 0.8rem;" id="modal-receipt-body">
+                <!-- Receipt injected here -->
+            </div>
+
+            <button class="btn btn-brand" onclick="resetAppSession()">Done & Return to Store Entry</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-notification" id="toast-el">
+        <div style="font-weight:700; font-size:0.85rem;" id="toast-title">Notice</div>
+        <div style="font-size:0.8rem; color:var(--text-secondary);" id="toast-msg">Message body</div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let currentSessionId = null;
+
+        // Guard: Verify active session or redirect to landing page
+        function initCartSession() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const querySession = urlParams.get("session_id");
+            const localSession = localStorage.getItem("active_session_id");
+
+            currentSessionId = querySession || localSession;
+
+            if (!currentSessionId) {
+                console.warn("No active session found. Redirecting to landing page...");
+                window.location.href = "/landing";
+                return;
+            }
+
+            document.getElementById("disp-session-id").textContent = currentSessionId;
+            const trackId = localStorage.getItem("person_track_id") || "TRK-BE3D";
+            document.getElementById("disp-track-id").textContent = trackId;
+
+            loadCatalog();
+            updateCartState();
+        }
+
+        async function loadCatalog() {
+            try {
+                const res = await fetch(`${API_URL}/products`);
+                const products = await res.json();
+                const container = document.getElementById("dynamic-catalog-chips");
+                if (products && products.length > 0) {
+                    container.innerHTML = products.map(p => `
+                        <span class="barcode-chip" onclick="quickScan('${p.barcode}')">
+                            ${p.emoji || '📦'} ${p.barcode} (${p.name} $${p.price.toFixed(2)})
+                        </span>
+                    `).join("");
+                }
+            } catch (err) {
+                console.error("Failed to load products catalog", err);
+            }
+        }
+
+        async function updateCameraShelfFeed() {
+            try {
+                const shelfRes = await fetch(`${API_URL}/cv/shelf-state`);
+                const shelfData = await shelfRes.json();
+                
+                // 1. Items Resting on Desk
+                const shelfListEl = document.getElementById("shelf-items-list");
+                if (shelfData.items_with_qty && shelfData.items_with_qty.length > 0) {
+                    shelfListEl.innerHTML = shelfData.items_with_qty.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green); font-weight: 600;">📦 ${item.emoji || '📦'} ${item.name.toUpperCase()} (Qty: ${item.qty})</span>
+                    `).join("");
+                    loadCatalog();
+                } else if (shelfData.items && shelfData.items.length > 0) {
+                    shelfListEl.innerHTML = shelfData.items.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green); font-weight: 600;">📦 ${item.toUpperCase()} (Resting on Desk)</span>
+                    `).join("");
+                } else {
+                    shelfListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--text-muted);">🔍 Desk Empty / Place Any Items On Desk</span>`;
+                }
+
+                // 2. Items Picked Off Desk
+                const pickedListEl = document.getElementById("picked-items-list");
+                if (shelfData.picked_items && shelfData.picked_items.length > 0) {
+                    pickedListEl.innerHTML = shelfData.picked_items.map(item => {
+                        const qtyStr = item.qty ? ` (Qty: ${item.qty})` : '';
+                        return `<span class="shelf-item-tag" style="background: #FEF3C7; border-color: var(--warning-amber); color: #92400E; font-weight: 700;">🚨 👆 ${item.emoji || '📦'} ${item.name.toUpperCase()}${qtyStr} PICKED — Scan Barcode Below</span>`;
+                    }).join("");
+                } else {
+                    pickedListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--success-green); font-weight: 600;">✅ 0 Picked Items — All Desk Objects Accounted For</span>`;
+                }
+
+                // 3. Event Stream
+                const eventStreamEl = document.getElementById("camera-event-stream");
+                if (shelfData.last_events && shelfData.last_events.length > 0) {
+                    eventStreamEl.innerHTML = shelfData.last_events.map(ev => {
+                        const isPick = ev.event_type === 'picked';
+                        const icon = isPick ? '👆' : '↩️';
+                        const color = isPick ? 'var(--warning-amber)' : 'var(--success-green)';
+                        const action = isPick ? 'picked up' : 'returned';
+                        const location = isPick ? 'off desk' : 'to desk';
+                        return `<div style="color: ${color}; font-weight: 600;">[${ev.timestamp}] ${icon} Customer ${action} ${ev.cv_class.toUpperCase()} ${location}</div>`;
+                    }).join("");
+                } else {
+                    eventStreamEl.innerHTML = `<div style="color: #64748B;">Waiting for camera state transitions...</div>`;
+                }
+            } catch (err) {
+                console.error("Error updating shelf feed", err);
+            }
+        }
+
+        async function updateCartState() {
+            updateCameraShelfFeed();
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/cart/${currentSessionId}`);
+                if (res.status !== 200) {
+                    localStorage.removeItem("active_session_id");
+                    window.location.href = "/landing";
+                    return;
+                }
+
+                const data = await res.json();
+
+                const trustEl = document.getElementById("disp-trust-score");
+                trustEl.textContent = data.trust_score;
+                trustEl.style.color = data.trust_score >= 85 ? "var(--success-green)" : data.trust_score >= 70 ? "var(--warning-amber)" : "var(--danger-red)";
+
+                const audit = data.ledger_audit;
+                const unresEl = document.getElementById("disp-unresolved-picks");
+                unresEl.textContent = audit.unresolved_picks;
+                unresEl.style.color = audit.unresolved_picks === 0 ? "var(--success-green)" : "var(--warning-amber)";
+
+                const container = document.getElementById("cart-items-container");
+                if (data.items.length === 0) {
+                    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px 0; font-size: 0.82rem;">Your cart is empty. Pick up an item from the shelf and scan its barcode.</div>`;
+                } else {
+                    container.innerHTML = data.items.map(item => `
+                        <div class="cart-item-row">
+                            <div class="item-main">
+                                <div class="item-icon">${item.emoji || '📦'}</div>
+                                <div>
+                                    <div class="item-title">
+                                        ${item.name}
+                                        <span class="badge badge-verified">${item.verification_status}</span>
+                                    </div>
+                                    <div class="item-sub">Qty: ${item.quantity} × $${item.price.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="item-price">$${item.subtotal.toFixed(2)}</div>
+                                <button class="btn btn-outline" style="font-size: 0.65rem; padding: 3px 6px; margin-top: 4px; color: var(--danger-red); border-color: var(--danger-red);" onclick="removeCartItem('${item.barcode}')">
+                                    ↩️ Return & Delete
+                                </button>
+                            </div>
+                        </div>
+                    `).join("");
+                }
+
+                document.getElementById("disp-item-count").textContent = `${data.items.length}`;
+                document.getElementById("disp-total-amount").textContent = `$${data.total.toFixed(2)}`;
+
+            } catch (err) {
+                console.error("Error updating cart", err);
+            }
+        }
+
+        function quickScan(code) {
+            document.getElementById("barcode-input").value = code;
+            scanBarcode();
+        }
+
+        async function scanBarcode() {
+            if (!currentSessionId) return;
+            const barcode = document.getElementById("barcode-input").value.trim();
+            if (!barcode) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/scan`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId, barcode: barcode })
+                });
+
+                const data = await res.json();
+                if (res.status === 200 && data.status === "success") {
+                    showToast("Item Scanned", data.message, "success");
+                } else {
+                    showToast("Scan Blocked", data.detail || data.reason || "Scan failed validation.", "error");
+                }
+
+                document.getElementById("barcode-input").value = "";
+                updateCartState();
+            } catch (err) {
+                showToast("Network Error", err.message, "error");
+            }
+        }
+
+        async function removeCartItem(barcode) {
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/cart/remove`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId, barcode: barcode })
+                });
+
+                const data = await res.json();
+                if (res.status === 200 && data.status === "success") {
+                    showToast("Item Removed", data.message, "success");
+                } else {
+                    showToast("Remove Blocked", data.detail || data.reason || "Cannot remove item.", "error");
+                }
+
+                updateCartState();
+            } catch (err) {
+                showToast("Network Error", err.message, "error");
+            }
+        }
+
+        async function executeCheckout() {
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/checkout`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+
+                const data = await res.json();
+                const isApproved = data.gate_decision === "GATE_OPEN_AUTOMATIC";
+
+                document.getElementById("modal-status-icon").textContent = isApproved ? "🟢" : "🔴";
+                document.getElementById("modal-status-title").textContent = isApproved ? "Exit Gate Released" : "Automated Security Hold";
+                document.getElementById("modal-status-sub").textContent = data.gate_status_msg;
+
+                document.getElementById("modal-receipt-body").innerHTML = `
+                    <div style="font-weight:700; margin-bottom:6px; color: var(--text-primary);">Transaction Receipt</div>
+                    <div>Receipt ID: <b>${data.payment_receipt.transaction_id}</b></div>
+                    <div>Person Track ID: <b>${data.person_track_id}</b></div>
+                    <div>Total Charged: <b>$${data.payment_receipt.amount_charged.toFixed(2)}</b></div>
+                    <div>Final Trust Score: <b>${data.trust_score}/100</b></div>
+                    <div>Unresolved Picks: <b>${data.unresolved_picks}</b></div>
+                    <div style="margin-top:8px; color: var(--brand-blue); font-weight:600;">Payment Status: ${data.payment_receipt.payment_status}</div>
+                `;
+
+                document.getElementById("exit-modal-el").classList.add("active");
+            } catch (err) {
+                showToast("Checkout Failure", err.message, "error");
+            }
+        }
+
+        function resetAppSession() {
+            document.getElementById("exit-modal-el").classList.remove("active");
+            localStorage.removeItem("active_session_id");
+            localStorage.removeItem("person_track_id");
+            window.location.href = "/landing";
+        }
+
+        function showToast(title, body, status) {
+            const toast = document.getElementById("toast-el");
+            document.getElementById("toast-title").textContent = title;
+            document.getElementById("toast-msg").textContent = body;
+            toast.style.borderColor = status === "success" ? "var(--success-green)" : "var(--danger-red)";
+            toast.classList.add("active");
+            setTimeout(() => { toast.classList.remove("active"); }, 3000);
+        }
+
+        // Poll live camera shelf feed & cart state every 1s
+        setInterval(() => {
+            updateCameraShelfFeed();
+            if (currentSessionId) updateCartState();
+        }, 1000);
+
+        initCartSession();
+    </script>
+</body>
+</html>

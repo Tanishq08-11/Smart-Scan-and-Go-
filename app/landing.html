@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Smart Store Entry Pass — Smart Scan & Go</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-body:       #F8FAFC;
+            --bg-card:       #FFFFFF;
+            --border:        #E2E8F0;
+            --text-primary:  #0F172A;
+            --text-secondary:#475569;
+            --text-muted:    #94A3B8;
+            --brand-blue:    #2563EB;
+            --brand-blue-hover:#1D4ED8;
+            --brand-gradient:linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+            --success-green: #059669;
+            --success-bg:    #ECFDF5;
+            --warning-amber: #D97706;
+            --warning-bg:    #FFFBEB;
+            --danger-red:    #DC2626;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px;
+        }
+
+        .landing-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .top-navbar {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .brand-logo {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0F172A;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .brand-logo span {
+            background: var(--brand-blue);
+            color: #FFFFFF;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .status-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--success-green);
+            background: var(--success-bg);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(5,150,105,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success-green); }
+
+        .hero-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+            text-align: center;
+        }
+
+        .pass-authorized-banner {
+            background: var(--success-bg);
+            border: 1px solid rgba(5,150,105,0.3);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .info-row { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; }
+        .info-label { font-weight: 700; color: var(--text-secondary); }
+        .info-val { font-family: monospace; font-weight: 800; color: var(--brand-blue); }
+
+        .btn-cta {
+            background: var(--brand-gradient);
+            color: #FFFFFF;
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .btn-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(37,99,235,0.4); }
+        .btn-cta:active { transform: translateY(1px); }
+
+        /* Feature Cards */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .feature-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .feature-icon { font-size: 1.8rem; margin-bottom: 8px; }
+        .feature-title { font-size: 0.88rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+        .feature-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.35; }
+
+        .live-preview-box {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+
+        .shelf-item-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #F8FAFC;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-right: 6px;
+            margin-top: 6px;
+        }
+
+        .toast-notification {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0; z-index: 3000;
+        }
+        .toast-notification.active { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="landing-container">
+
+        <!-- Top Navigation Header -->
+        <div class="top-navbar">
+            <div class="brand-logo">🛒 SMART SCAN & GO <span>Enterprise</span></div>
+            <div class="status-badge"><div class="status-dot"></div> Turnstile Active</div>
+        </div>
+
+        <!-- Hero Section & Session Authorization -->
+        <div class="hero-card">
+            <div style="font-size: 2.5rem; margin-bottom: 6px;">🚪✨</div>
+            <h1 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">
+                Store Entry QR Pass Authorized!
+            </h1>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.4;">
+                Welcome to Smart Scan & Go! Turnstile pass verified. Your session is active and pre-authorized ($50 hold).
+            </p>
+
+            <div class="pass-authorized-banner">
+                <div class="info-row">
+                    <span class="info-label">Active Session ID:</span>
+                    <span class="info-val" id="disp-session-id">LOADING...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Person ReID Track ID:</span>
+                    <span class="info-val" id="disp-track-id">LOADING...</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 700; margin-top: 8px;">
+                    🟢 Pre-Authorized Payment Hold Active ($50.00)
+                </div>
+            </div>
+
+            <!-- PROVISION TO OPEN CART -->
+            <button class="btn-cta" onclick="openShoppingCart()">
+                🛒 Start Shopping & Open Cart →
+            </button>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 8px;">
+                Initial Session State: Unresolved Picks = 0 | Trust Score = 100
+            </div>
+        </div>
+
+        <!-- Project Capabilities & Features Showcase -->
+        <div style="font-size: 0.82rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding-left: 2px;">
+            🌟 Autonomous AI Store Capabilities:
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <div class="feature-title">AI Object Discovery</div>
+                <div class="feature-desc">Zero-hardcode YOLOv8 neural vision dynamically tracks resting desk objects & quantities in real-time.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <div class="feature-title">Sensor Fusion Security</div>
+                <div class="feature-desc">Real-time pick/return ledger reconciliation ensuring 100% item count accuracy.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">Anti-Swap Verification</div>
+                <div class="feature-desc">Cross-references barcode scans against physical pickups to detect class mismatches immediately.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">↩️</div>
+                <div class="feature-title">Shelf Return Validation</div>
+                <div class="feature-desc">Cart items can only be deleted if physically placed back on the shelf rack.</div>
+            </div>
+        </div>
+
+        <!-- Live Desk Inventory Preview -->
+        <div class="live-preview-box">
+            <div style="font-size: 0.75rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span>📦 LIVE STORE DESK PREVIEW:</span>
+                <span style="color: var(--success-green); font-size: 0.7rem; font-weight: 700;">AI VISION LIVE</span>
+            </div>
+            <div id="preview-shelf-list">
+                <span class="shelf-item-tag">🔍 Fetching store desk inventory...</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-notification" id="toast-el">
+        <div style="font-weight:700; font-size:0.85rem;" id="toast-title">Notice</div>
+        <div style="font-size:0.8rem; color:var(--text-secondary);" id="toast-msg">Message body</div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let currentSessionId = null;
+
+        async function initLandingSession() {
+            // Auto-provision fresh session if not present or query param start=1 is present
+            const localSession = localStorage.getItem("active_session_id");
+            const urlParams = new URLSearchParams(window.location.search);
+            const isStart = urlParams.get("start") === "1" || urlParams.get("entry") === "qr";
+
+            if (!localSession || isStart) {
+                await startNewSession();
+            } else {
+                currentSessionId = localSession;
+                document.getElementById("disp-session-id").textContent = currentSessionId;
+                document.getElementById("disp-track-id").textContent = localStorage.getItem("person_track_id") || "TRK-BE3D";
+            }
+
+            fetchLiveDeskPreview();
+            setInterval(fetchLiveDeskPreview, 1500);
+        }
+
+        async function startNewSession() {
+            try {
+                const res = await fetch(`${API_URL}/session/new`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ payment_method: "UPI / Card Pre-Auth" })
+                });
+
+                const data = await res.json();
+                if (res.status === 200 && data.session_id) {
+                    currentSessionId = data.session_id;
+                    localStorage.setItem("active_session_id", data.session_id);
+                    localStorage.setItem("person_track_id", data.person_track_id);
+
+                    document.getElementById("disp-session-id").textContent = data.session_id;
+                    document.getElementById("disp-track-id").textContent = data.person_track_id;
+                    showToast("Turnstile Verified", `Entry Pass Approved! Session: ${data.session_id}`, "success");
+                }
+            } catch (err) {
+                console.error("Error creating session", err);
+            }
+        }
+
+        async function fetchLiveDeskPreview() {
+            try {
+                const res = await fetch(`${API_URL}/cv/shelf-state`);
+                const data = await res.json();
+                const container = document.getElementById("preview-shelf-list");
+
+                if (data.items_with_qty && data.items_with_qty.length > 0) {
+                    container.innerHTML = data.items_with_qty.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green);">📦 ${item.emoji || '📦'} ${item.name.toUpperCase()} (Qty: ${item.qty})</span>
+                    `).join("");
+                } else if (data.items && data.items.length > 0) {
+                    container.innerHTML = data.items.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green);">📦 ${item.toUpperCase()} (Resting on Desk)</span>
+                    `).join("");
+                } else {
+                    container.innerHTML = `<span class="shelf-item-tag" style="color: var(--text-muted);">🔍 Desk Empty / Place Any Items On Desk</span>`;
+                }
+            } catch (err) {
+                console.error("Error fetching shelf preview", err);
+            }
+        }
+
+        function openShoppingCart() {
+            if (currentSessionId) {
+                window.location.href = `/cart?session_id=${currentSessionId}`;
+            } else {
+                startNewSession().then(() => {
+                    window.location.href = `/cart?session_id=${currentSessionId}`;
+                });
+            }
+        }
+
+        function showToast(title, body, status) {
+            const toast = document.getElementById("toast-el");
+            document.getElementById("toast-title").textContent = title;
+            document.getElementById("toast-msg").textContent = body;
+            toast.style.borderColor = status === "success" ? "var(--success-green)" : "var(--danger-red)";
+            toast.classList.add("active");
+            setTimeout(() => { toast.classList.remove("active"); }, 3000);
+        }
+
+        initLandingSession();
+    </script>
+</body>
+</html>

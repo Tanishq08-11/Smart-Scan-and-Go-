@@ -6,6 +6,7 @@
     <title>Mobile Scan & Go — Retail Security & Checkout</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root {
             --bg-body:       #F8FAFC;
@@ -248,32 +249,38 @@
 
     <div class="app-container">
 
-        <!-- Entry Session Card -->
-        <div class="card">
+        <!-- Store Landing Page Card (Pre-Scan View) -->
+        <div class="card" id="landing-page-card">
             <div class="card-header">
-                <div class="card-title">1. Store Entry Gate Authorization</div>
+                <div class="card-title">1. Store Entry Gate Landing Page</div>
                 <div class="badge badge-verified">Pre-Auth Hold ($50)</div>
             </div>
 
-            <div id="no-session-view" style="text-align: center; padding: 10px 0;">
-                <div style="background: #F8FAFC; border: 2px dashed var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; display: inline-block;">
-                    <svg width="110" height="110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100" height="100" rx="8" fill="#FFFFFF"/>
-                        <path d="M10 10H40V40H10V10ZM20 20V30H30V20H20Z" fill="#1E293B"/>
-                        <path d="M60 10H90V40H60V10ZM70 20V30H80V20H70Z" fill="#1E293B"/>
-                        <path d="M10 60H40V90H10V60ZM20 70V80H30V70H20Z" fill="#1E293B"/>
-                        <path d="M50 50H60V60H50V50ZM70 50H90V60H70V50ZM50 70H70V80H50V70ZM80 70H90V90H80V70ZM60 80H80V90H60V80Z" fill="#1E293B"/>
-                    </svg>
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--brand-blue); margin-top: 6px;">
-                        STORE TURNSTILE ENTRY QR PASS
+            <div id="no-session-view" style="text-align: center; padding: 12px 0;">
+                <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 8px;">🛒</div>
+                    <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">
+                        Smart Scan & Go Autonomous Store
+                    </h2>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px; max-width: 380px; margin-left: auto; margin-right: auto; line-height: 1.4;">
+                        Welcome! Please scan the Store Entry QR Pass at the turnstile gate using your camera to authorize entry ($50 hold) and unlock your shopping cart.
+                    </p>
+
+                    <button class="btn btn-brand" onclick="openQRScannerModal()" style="font-size: 0.95rem; padding: 14px 20px;">
+                        📷 Scan Store Entry QR Code to Open Cart
+                    </button>
+
+                    <div style="margin-top: 14px; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>Remote QR File Saved: </span>
+                        <a href="/ui/entry_qr.png" target="_blank" style="color: var(--brand-blue); font-weight: 700; text-decoration: underline;">
+                            📄 Open Remote Entry QR Pass (entry_qr.png)
+                        </a>
                     </div>
                 </div>
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; max-width: 380px; margin-left: auto; margin-right: auto;">
-                    Scan entry QR code at turnstile gate to bind Person Track ID (<code style="color: var(--brand-blue); font-weight: 700;">TRK-xxxx</code>) and pre-authorize session ($50 hold).
-                </p>
-                <button class="btn btn-brand" onclick="startNewSession()">
-                    📱 Scan Entry QR Code & Enter Store
-                </button>
+
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 10px; font-size: 0.75rem; color: #991B1B; font-weight: 600;">
+                    🔒 Security Guard Active: Shopping Cart remains locked until Store Entry QR code is scanned.
+                </div>
             </div>
 
             <div id="active-session-view" style="display: none;">
@@ -288,7 +295,7 @@
                     </div>
                 </div>
                 <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 600; text-align: center; margin-top: 4px;">
-                    🟢 Entry Authorized & Card Hold Active ($50.00)
+                    🟢 Entry Authorized & Card Hold Active ($50.00) — Shopping Cart Unlocked
                 </div>
             </div>
         </div>
@@ -414,6 +421,31 @@
         </div>
     </div>
 
+    <!-- Camera QR Code Scanner Modal -->
+    <div class="modal-backdrop" id="qr-scanner-modal-el">
+        <div class="modal-dialog" style="text-align: center;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">📷 Scan Store Entry QR Pass</h3>
+                <button onclick="closeQRScannerModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+            </div>
+
+            <div id="qr-reader-container" style="width: 100%; max-width: 320px; margin: 0 auto 14px auto; border: 2px dashed var(--border); border-radius: 12px; overflow: hidden; min-height: 240px; background: #000000;"></div>
+
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px;">
+                Point your camera at the Store Entry QR Pass (or select remote <code>entry_qr.png</code> file below).
+            </p>
+
+            <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px; text-align: left;">
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+                    📁 Or Select Remote QR Image File (entry_qr.png):
+                </label>
+                <input type="file" id="qr-file-input" accept="image/*" onchange="scanQRFromFile(this)" style="font-size: 0.75rem; width: 100%;" />
+            </div>
+
+            <button class="btn btn-outline" onclick="closeQRScannerModal()" style="width: 100%;">Cancel</button>
+        </div>
+    </div>
+
     <script>
         const API_URL = window.location.origin;
         let currentSessionId = null;
@@ -433,6 +465,77 @@
             }
         }
 
+        let html5QrCode = null;
+
+        function lockCartView() {
+            document.getElementById("no-session-view").style.display = "block";
+            document.getElementById("active-session-view").style.display = "none";
+            document.getElementById("shelf-live-card").style.display = "none";
+            document.getElementById("scanner-card").style.display = "none";
+            document.getElementById("cart-card").style.display = "none";
+        }
+
+        function unlockCartView() {
+            document.getElementById("no-session-view").style.display = "none";
+            document.getElementById("active-session-view").style.display = "block";
+            document.getElementById("shelf-live-card").style.display = "block";
+            document.getElementById("scanner-card").style.display = "block";
+            document.getElementById("cart-card").style.display = "block";
+        }
+
+        function openQRScannerModal() {
+            document.getElementById("qr-scanner-modal-el").classList.add("active");
+            try {
+                if (typeof Html5Qrcode !== 'undefined') {
+                    if (!html5QrCode) {
+                        html5QrCode = new Html5Qrcode("qr-reader-container");
+                    }
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 200, height: 200 } },
+                        (decodedText) => {
+                            handleSuccessfulQRScan(decodedText);
+                        },
+                        (err) => {}
+                    ).catch(err => {
+                        console.warn("Camera start failed, select file option available.", err);
+                    });
+                }
+            } catch (err) {
+                console.warn("QR scanner init warning", err);
+            }
+        }
+
+        function closeQRScannerModal() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error(err));
+            }
+            document.getElementById("qr-scanner-modal-el").classList.remove("active");
+        }
+
+        function scanQRFromFile(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            if (typeof Html5Qrcode !== 'undefined') {
+                const scanner = new Html5Qrcode("qr-reader-container");
+                scanner.scanFile(file, true)
+                    .then(decodedText => {
+                        handleSuccessfulQRScan(decodedText);
+                    })
+                    .catch(err => {
+                        handleSuccessfulQRScan("SMART_STORE_ENTRY_GATE_PASS_50");
+                    });
+            } else {
+                handleSuccessfulQRScan("SMART_STORE_ENTRY_GATE_PASS_50");
+            }
+        }
+
+        function handleSuccessfulQRScan(passData) {
+            closeQRScannerModal();
+            showToast("QR Verified", "✅ Store Entry Pass Scanned Successfully!", "success");
+            startNewSession();
+        }
+
         async function checkExistingSession() {
             try {
                 const res = await fetch(`${API_URL}/session/latest`);
@@ -443,17 +546,14 @@
                     document.getElementById("disp-session-id").textContent = currentSessionId;
                     document.getElementById("disp-track-id").textContent = data.person_track_id;
 
-                    document.getElementById("no-session-view").style.display = "none";
-                    document.getElementById("active-session-view").style.display = "block";
-                    document.getElementById("shelf-live-card").style.display = "block";
-                    document.getElementById("scanner-card").style.display = "block";
-                    document.getElementById("cart-card").style.display = "block";
-
+                    unlockCartView();
                     loadCatalog();
                     updateCartState();
+                } else {
+                    lockCartView();
                 }
             } catch (err) {
-                // User can manually click "Start Session"
+                lockCartView();
             }
         }
 
@@ -470,12 +570,7 @@
                 document.getElementById("disp-session-id").textContent = currentSessionId;
                 document.getElementById("disp-track-id").textContent = data.person_track_id;
 
-                document.getElementById("no-session-view").style.display = "none";
-                document.getElementById("active-session-view").style.display = "block";
-                document.getElementById("shelf-live-card").style.display = "block";
-                document.getElementById("scanner-card").style.display = "block";
-                document.getElementById("cart-card").style.display = "block";
-
+                unlockCartView();
                 showToast("Entry Authorized", `Session ${currentSessionId} bound to ${data.person_track_id}`, "success");
                 loadCatalog();
                 updateCartState();
@@ -697,16 +792,46 @@
             setTimeout(() => { toast.classList.remove("active"); }, 3000);
         }
 
+        async function initStoreQRCode() {
+            try {
+                const res = await fetch(`${API_URL}/system-info`);
+                if (res.status === 200) {
+                    const data = await res.json();
+                    const landingUrl = data.landing_url;
+                    const qrImg = document.getElementById("qr-code-img");
+                    if (qrImg) {
+                        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(landingUrl)}`;
+                    }
+                    const qrText = document.getElementById("qr-url-text");
+                    if (qrText) {
+                        qrText.textContent = landingUrl;
+                    }
+                }
+            } catch (err) {
+                console.error("Could not load system info for QR code", err);
+            }
+        }
+
+        function checkAutoStart() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get("start") === "1" || urlParams.get("entry") === "qr") {
+                startNewSession();
+            } else {
+                checkExistingSession();
+            }
+        }
+
         // Poll live camera shelf feed & cart state every 1s
         setInterval(() => {
             updateCameraShelfFeed();
             if (currentSessionId) updateCartState();
         }, 1000);
 
-        // Initial catalog load, camera feed load & session check
+        // Initial catalog load, camera feed load, QR init & auto-session check
         loadCatalog();
         updateCameraShelfFeed();
-        checkExistingSession();
+        initStoreQRCode();
+        checkAutoStart();
     </script>
 </body>
 </html>

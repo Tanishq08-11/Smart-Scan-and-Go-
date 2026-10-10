@@ -17,10 +17,22 @@ import uuid
 import sqlite3
 import os
 
+import socket
+
 try:
     from database import init_db, get_connection
 except ImportError:
     from backend.database import init_db, get_connection
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 # --- App Setup ---
 app = FastAPI(title="Scan & Go Loss Prevention API", version="3.6.0")
@@ -39,22 +51,57 @@ if os.path.exists(app_dir):
 @app.on_event("startup")
 def startup():
     init_db()
-    print("[SERVER] Scan & Go Loss Prevention API v3.6 is running.")
+    ip = get_local_ip()
+    print(f"[SERVER] Scan & Go Loss Prevention API v3.6 is running.")
+    print(f"[SERVER] 📱 Scan QR Store Landing URL: http://{ip}:8000/ui?start=1")
+
+@app.get("/system-info")
+def system_info():
+    ip = get_local_ip()
+    return {
+        "local_ip": ip,
+        "port": 8000,
+        "landing_url": f"http://{ip}:8000/landing?start=1"
+    }
 
 # --- Direct UI Route Handlers (Foolproof Web Access) ---
 @app.get("/")
 def root():
-    index_path = os.path.join(app_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
+    landing_path = os.path.join(app_dir, "landing.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path)
     return {"message": "Scan & Go Loss Prevention API v3.6 is running."}
+
+@app.get("/landing")
+def landing():
+    landing_path = os.path.join(app_dir, "landing.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path)
+    return RedirectResponse(url="/")
+
+@app.get("/cart")
+def cart():
+    cart_path = os.path.join(app_dir, "cart.html")
+    if os.path.exists(cart_path):
+        return FileResponse(cart_path)
+    return RedirectResponse(url="/landing")
 
 @app.get("/ui")
 def ui_root():
-    index_path = os.path.join(app_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return RedirectResponse(url="/ui/")
+    landing_path = os.path.join(app_dir, "landing.html")
+    if os.path.exists(landing_path):
+        return FileResponse(landing_path)
+    return RedirectResponse(url="/landing")
+
+@app.get("/entry_qr.png")
+def get_entry_qr():
+    root_qr = os.path.join(os.path.dirname(os.path.dirname(__file__)), "entry_qr.png")
+    if os.path.exists(root_qr):
+        return FileResponse(root_qr)
+    app_qr = os.path.join(app_dir, "entry_qr.png")
+    if os.path.exists(app_qr):
+        return FileResponse(app_qr)
+    raise HTTPException(status_code=404, detail="entry_qr.png not found")
 
 # --- Live Camera Shelf State & Event Cache ---
 current_shelf_inventory = {"items": [], "picked_items": [], "last_events": [], "updated_at": None}
