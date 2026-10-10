@@ -60,8 +60,8 @@ def system_info():
     ip = get_local_ip()
     return {
         "local_ip": ip,
-        "port": 8000,
-        "landing_url": f"http://{ip}:8000/landing?start=1"
+        "port": 80,
+        "landing_url": f"http://{ip}/landing?start=1"
     }
 
 # --- Direct UI Route Handlers (Foolproof Web Access) ---

@@ -10,7 +10,7 @@ import requests
 from ultralytics import YOLO
 
 # --- Config ---
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "http://127.0.0.1"
 MIN_CONFIDENCE = 0.35          # Responsive detection confidence threshold
 FRAMES_TO_CONFIRM_PICK = 3     # Continuous absent frames to confirm physical pickup
 FRAMES_TO_CONFIRM_RETURN = 5   # Continuous stable frames back on desk to confirm return
