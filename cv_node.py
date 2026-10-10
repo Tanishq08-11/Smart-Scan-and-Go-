@@ -56,8 +56,8 @@ def send_pick_event(cv_class: str, event_type: str, confidence: float = 1.0):
                 print("========================================================================\n")
         else:
             print(f"[API ERROR] HTTP {r.status_code}: {r.text}")
-    except requests.exceptions.ConnectionError:
-        print(f"[API WARNING] Cannot connect to backend server at {BACKEND_URL}")
+    except Exception as e:
+        print(f"[API WARNING] Could not reach backend API at {BACKEND_URL}: {e}")
 
 def run():
     print("=" * 76)
