@@ -83,42 +83,27 @@ class RemoveCartItemRequest(BaseModel):
     barcode: str
 
 def recalculate_trust_score(conn: sqlite3.Connection, session_id: str):
-    """Calculates deterministic Trust Score based on active pick ledger."""
+    """Calculates deterministic Trust Score based on active pick ledger and anomaly audit."""
     score = 100
     
     mismatches = conn.execute(
-        "SELECT COUNT(*) FROM anomaly_log WHERE session_id = ? AND anomaly_type IN ('CLASS_MISMATCH', 'NO_CAMERA_PICK')",
+        "SELECT COUNT(*) FROM anomaly_log WHERE session_id = ? AND anomaly_type IN ('CLASS_MISMATCH', 'INVALID_PRODUCT', 'UNAUTHORIZED_CART_REMOVE')",
         (session_id,)
     ).fetchone()[0]
     score -= (mismatches * 20)
 
-    picks = conn.execute(
-        "SELECT cv_class FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)
-    ).fetchall()
-    
-    returns = conn.execute(
-        "SELECT cv_class FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)
-    ).fetchall()
-    
-    scans = conn.execute("""
-        SELECT p.cv_class FROM cart_items ci 
-        JOIN products p ON ci.product_id = p.id 
-        WHERE ci.session_id = ?
-    """, (session_id,)).fetchall()
+    # Check unreturned picks penalty if checking out
+    session = conn.execute("SELECT status FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    if session and session["status"] == "checked_out":
+        picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
+        returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+        scans_row = conn.execute("SELECT SUM(quantity) FROM cart_items WHERE session_id = ?", (session_id,)).fetchone()[0]
+        scans = scans_row if scans_row else 0
 
-    pick_list = [p["cv_class"] for p in picks]
-    resolved_list = [r["cv_class"] for r in returns] + [s["cv_class"] for s in scans]
+        unresolved_count = max(0, picks - returns - scans)
+        score -= (unresolved_count * 50)
 
-    unresolved_count = 0
-    for item in pick_list:
-        if item in resolved_list:
-            resolved_list.remove(item)
-        else:
-            unresolved_count += 1
-
-    score -= (unresolved_count * 50)
     score = max(0, min(100, score))
-
     conn.execute("UPDATE sessions SET trust_score = ? WHERE id = ?", (score, session_id))
     conn.commit()
     return score

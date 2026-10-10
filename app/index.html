@@ -510,7 +510,7 @@
                 const audit = data.ledger_audit;
                 const unresEl = document.getElementById("disp-unresolved-picks");
                 unresEl.textContent = audit.unresolved_picks;
-                unresEl.style.color = audit.unresolved_picks === 0 ? "var(--success-green)" : "var(--danger-red)";
+                unresEl.style.color = audit.unresolved_picks === 0 ? "var(--success-green)" : "var(--warning-amber)";
 
                 // Render Cart List
                 const container = document.getElementById("cart-items-container");
