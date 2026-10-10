@@ -56,8 +56,8 @@ def ui_root():
         return FileResponse(index_path)
     return RedirectResponse(url="/ui/")
 
-# --- Live Camera Shelf State Cache ---
-current_shelf_inventory = {"items": [], "updated_at": None}
+# --- Live Camera Shelf State & Event Cache ---
+current_shelf_inventory = {"items": [], "picked_items": [], "last_events": [], "updated_at": None}
 
 # --- Models ---
 class NewSessionRequest(BaseModel):
@@ -73,6 +73,8 @@ class CVPickEvent(BaseModel):
 
 class ShelfStateRequest(BaseModel):
     items: list = []
+    items_with_qty: list = []
+    picked_items: list = []
 
 class ScanRequest(BaseModel):
     session_id: str
@@ -81,6 +83,18 @@ class ScanRequest(BaseModel):
 class RemoveCartItemRequest(BaseModel):
     session_id: str
     barcode: str
+
+BARCODE_PRESETS = {
+    "bottle": ("1111", 2.50, "🥤"),
+    "cell phone": ("2222", 699.00, "📱"),
+    "book": ("3333", 15.00, "📖"),
+    "cup": ("4444", 4.50, "☕"),
+    "laptop": ("5555", 999.00, "💻"),
+    "mouse": ("6666", 25.00, "🖱️"),
+    "keyboard": ("7777", 45.00, "⌨️"),
+    "banana": ("8888", 0.50, "🍌"),
+    "apple": ("9999", 1.00, "🍎")
+}
 
 def recalculate_trust_score(conn: sqlite3.Connection, session_id: str):
     """Calculates deterministic Trust Score based on active pick ledger and anomaly audit."""
@@ -93,10 +107,11 @@ def recalculate_trust_score(conn: sqlite3.Connection, session_id: str):
     score -= (mismatches * 20)
 
     # Check unreturned picks penalty if checking out
-    session = conn.execute("SELECT status FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    session = conn.execute("SELECT created_at, status FROM sessions WHERE id = ?", (session_id,)).fetchone()
     if session and session["status"] == "checked_out":
-        picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
-        returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+        created_at = session["created_at"]
+        picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'picked'", (session_id, created_at)).fetchone()[0]
+        returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'returned'", (session_id, created_at)).fetchone()[0]
         scans_row = conn.execute("SELECT SUM(quantity) FROM cart_items WHERE session_id = ?", (session_id,)).fetchone()[0]
         scans = scans_row if scans_row else 0
 
@@ -144,14 +159,18 @@ def get_anomalies(session_id: str):
 def new_session(req: NewSessionRequest = NewSessionRequest()):
     session_id = str(uuid.uuid4())[:8].upper()
     person_track_id = f"TRK-{uuid.uuid4().hex[:4].upper()}"
+    created_at = datetime.now().isoformat()
     
     conn = get_connection()
     conn.execute("UPDATE sessions SET status = 'completed' WHERE status = 'active'")
+    conn.execute("DELETE FROM cv_events")
+    conn.execute("DELETE FROM cart_items")
+    conn.execute("DELETE FROM anomaly_log")
     conn.execute(
         """INSERT INTO sessions 
            (id, person_track_id, preauth_status, payment_method, trust_score, status, created_at) 
            VALUES (?, ?, 'AUTHORIZED ($50 Hold)', ?, 100, 'active', ?)""",
-        (session_id, person_track_id, req.payment_method, datetime.now().isoformat())
+        (session_id, person_track_id, req.payment_method, created_at)
     )
     conn.commit()
     conn.close()
@@ -178,11 +197,40 @@ def get_latest_session():
 @app.post("/cv/shelf-state")
 def update_shelf_state(req: ShelfStateRequest):
     global current_shelf_inventory
+
+    # Auto-seed dynamically discovered camera products into store database
+    if req.items_with_qty:
+        conn = get_connection()
+        for item in req.items_with_qty:
+            cv_cls = item["cv_class"]
+            name = item["name"]
+            emoji = item.get("emoji", "📦")
+            
+            existing = conn.execute("SELECT id FROM products WHERE cv_class = ?", (cv_cls,)).fetchone()
+            if not existing:
+                if cv_cls in BARCODE_PRESETS:
+                    bc, pr, em = BARCODE_PRESETS[cv_cls]
+                else:
+                    count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+                    bc = f"{(count + 1) * 1111:04d}"[:4]
+                    pr = 9.99
+                    em = emoji
+
+                conn.execute(
+                    "INSERT OR IGNORE INTO products (name, barcode, price, cv_class, weight_g, shelf_slot, emoji) VALUES (?, ?, ?, ?, 200.0, 'Desk-Zone', ?)",
+                    (f"{name}", bc, pr, cv_cls, em)
+                )
+        conn.commit()
+        conn.close()
+
     current_shelf_inventory = {
-        "items": req.items,
+        "items": [i["cv_class"] for i in req.items_with_qty] if req.items_with_qty else req.items,
+        "items_with_qty": req.items_with_qty,
+        "picked_items": req.picked_items,
+        "last_events": current_shelf_inventory.get("last_events", []),
         "updated_at": datetime.now().isoformat()
     }
-    return {"status": "updated", "items": req.items}
+    return {"status": "updated", "items_with_qty": req.items_with_qty, "picked_items": req.picked_items}
 
 @app.get("/cv/shelf-state")
 def get_shelf_state():
@@ -201,9 +249,19 @@ def cv_pick_event(event: CVPickEvent):
     if event.session_id and event.session_id != "LATEST" and event.session_id not in target_sessions:
         target_sessions.append(event.session_id)
 
+    # Append to live event stream for UI display
+    event_entry = {
+        "cv_class": event.cv_class,
+        "event_type": event.event_type,
+        "timestamp": datetime.now().strftime("%I:%M:%S %p")
+    }
+    events_list = current_shelf_inventory.get("last_events", [])
+    events_list.insert(0, event_entry)
+    current_shelf_inventory["last_events"] = events_list[:5]
+
     if not target_sessions:
         conn.close()
-        return {"status": "ignored", "reason": "No active sessions found."}
+        return {"status": "logged", "reason": "Camera event stream updated, no active sessions."}
 
     for sid in target_sessions:
         conn.execute(
@@ -244,18 +302,19 @@ def scan_item(req: ScanRequest):
 
     product = dict(product)
     expected_class = product["cv_class"]
+    session_created = session["created_at"]
 
     cursor = conn.cursor()
     cursor.execute("""
         SELECT COUNT(*) FROM cv_events
-        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked'
-    """, (req.session_id, expected_class))
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked' AND timestamp >= ?
+    """, (req.session_id, expected_class, session_created))
     pick_count = cursor.fetchone()[0]
 
     cursor.execute("""
         SELECT COUNT(*) FROM cv_events
-        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned'
-    """, (req.session_id, expected_class))
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned' AND timestamp >= ?
+    """, (req.session_id, expected_class, session_created))
     return_count = cursor.fetchone()[0]
 
     cart_qty_row = conn.execute("""
@@ -268,12 +327,22 @@ def scan_item(req: ScanRequest):
     available_unscanned_picks = pick_count - return_count - scanned_qty
 
     if available_unscanned_picks <= 0:
-        if pick_count == 0:
+        # Check if customer picked a DIFFERENT item class off shelf
+        other_pick = conn.execute("""
+            SELECT cv_class FROM cv_events
+            WHERE session_id = ? AND event_type = 'picked' AND cv_class != ? AND timestamp >= ?
+            ORDER BY timestamp DESC LIMIT 1
+        """, (req.session_id, expected_class, session_created)).fetchone()
+
+        if other_pick:
+            actual_picked_class = other_pick["cv_class"]
+            err_msg = f"🚨 Security Alert: Class Mismatch! You physically picked '{actual_picked_class.upper()}' off the shelf, but scanned barcode for '{product['name']}'!"
+            log_anomaly(conn, req.session_id, actual_picked_class, req.barcode, "CLASS_MISMATCH", err_msg)
+        elif pick_count == 0:
             err_msg = f"Security Alert: No physical pickup detected for '{product['name']}'. Please lift the item off the shelf first!"
         else:
             err_msg = f"Notice: All picked '{product['name']}' items are already in your cart. Lift another item off the shelf to scan again."
 
-        log_anomaly(conn, req.session_id, None, req.barcode, "NO_CAMERA_PICK", err_msg)
         recalculate_trust_score(conn, req.session_id)
         conn.close()
         raise HTTPException(status_code=400, detail=err_msg)
@@ -327,19 +396,20 @@ def remove_cart_item(req: RemoveCartItemRequest):
 
     product = dict(product)
     cv_class = product["cv_class"]
+    session_created = session["created_at"]
 
     # Check if item is currently on shelf or returned
     is_on_shelf = cv_class in current_shelf_inventory.get("items", [])
     
     recent_returns = conn.execute("""
         SELECT COUNT(*) FROM cv_events
-        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned'
-    """, (req.session_id, cv_class)).fetchone()[0]
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned' AND timestamp >= ?
+    """, (req.session_id, cv_class, session_created)).fetchone()[0]
 
     recent_picks = conn.execute("""
         SELECT COUNT(*) FROM cv_events
-        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked'
-    """, (req.session_id, cv_class)).fetchone()[0]
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked' AND timestamp >= ?
+    """, (req.session_id, cv_class, session_created)).fetchone()[0]
 
     # Item is considered returned to shelf if currently on shelf OR return events match pick events
     item_is_returned = is_on_shelf or (recent_returns >= recent_picks and recent_picks > 0)
@@ -398,10 +468,11 @@ def get_cart(session_id: str):
 
     cart = [dict(i) for i in items]
     total = sum(i["subtotal"] for i in cart)
+    session_created = session["created_at"]
     
     # Audit Pick Ledger
-    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
-    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'picked'", (session_id, session_created)).fetchone()[0]
+    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'returned'", (session_id, session_created)).fetchone()[0]
     scans = sum(i["quantity"] for i in cart)
     
     unresolved_picks = max(0, picks - returns - scans)
@@ -441,9 +512,10 @@ def checkout(req: dict):
 
     cart = [dict(i) for i in items]
     total = sum(i["subtotal"] for i in cart)
+    session_created = session["created_at"]
 
-    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'picked'", (session_id,)).fetchone()[0]
-    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND event_type = 'returned'", (session_id,)).fetchone()[0]
+    picks = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'picked'", (session_id, session_created)).fetchone()[0]
+    returns = conn.execute("SELECT COUNT(*) FROM cv_events WHERE session_id = ? AND timestamp >= ? AND event_type = 'returned'", (session_id, session_created)).fetchone()[0]
     scans = sum(i["quantity"] for i in cart)
     
     unresolved_picks = max(0, picks - returns - scans)

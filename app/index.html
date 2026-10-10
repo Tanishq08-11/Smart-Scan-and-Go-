@@ -251,46 +251,83 @@
         <!-- Entry Session Card -->
         <div class="card">
             <div class="card-header">
-                <div class="card-title">1. Entry Gate Authorization</div>
-                <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 600;">Payment Pre-Auth: OK</div>
+                <div class="card-title">1. Store Entry Gate Authorization</div>
+                <div class="badge badge-verified">Pre-Auth Hold ($50)</div>
             </div>
 
-            <div id="no-session-view">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
-                    Scan entry QR code to bind your shopper track ID and pre-authorize your session.
+            <div id="no-session-view" style="text-align: center; padding: 10px 0;">
+                <div style="background: #F8FAFC; border: 2px dashed var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; display: inline-block;">
+                    <svg width="110" height="110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100" height="100" rx="8" fill="#FFFFFF"/>
+                        <path d="M10 10H40V40H10V10ZM20 20V30H30V20H20Z" fill="#1E293B"/>
+                        <path d="M60 10H90V40H60V10ZM70 20V30H80V20H70Z" fill="#1E293B"/>
+                        <path d="M10 60H40V90H10V60ZM20 70V80H30V70H20Z" fill="#1E293B"/>
+                        <path d="M50 50H60V60H50V50ZM70 50H90V60H70V50ZM50 70H70V80H50V70ZM80 70H90V90H80V70ZM60 80H80V90H60V80Z" fill="#1E293B"/>
+                    </svg>
+                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--brand-blue); margin-top: 6px;">
+                        STORE TURNSTILE ENTRY QR PASS
+                    </div>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; max-width: 380px; margin-left: auto; margin-right: auto;">
+                    Scan entry QR code at turnstile gate to bind Person Track ID (<code style="color: var(--brand-blue); font-weight: 700;">TRK-xxxx</code>) and pre-authorize session ($50 hold).
                 </p>
                 <button class="btn btn-brand" onclick="startNewSession()">
-                    Start Session (Simulate Entry Gate Scan)
+                    📱 Scan Entry QR Code & Enter Store
                 </button>
             </div>
 
             <div id="active-session-view" style="display: none;">
                 <div class="info-grid">
                     <div class="info-cell">
-                        <div class="info-label">Session ID</div>
+                        <div class="info-label">Active Session ID</div>
                         <div class="info-value" id="disp-session-id" style="font-family: monospace;">-</div>
                     </div>
                     <div class="info-cell">
-                        <div class="info-label">Person Track ID</div>
+                        <div class="info-label">Person ReID Track ID</div>
                         <div class="info-value" id="disp-track-id" style="font-family: monospace; color: var(--brand-blue);">-</div>
                     </div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--success-green); font-weight: 600; text-align: center; margin-top: 4px;">
+                    🟢 Entry Authorized & Card Hold Active ($50.00)
                 </div>
             </div>
         </div>
 
-        <!-- Live Camera Shelf State Card (Dynamic from Camera AI) -->
-        <div class="card" id="shelf-live-card" style="display: none;">
+        <!-- Live Camera Shelf State Card (Always Visible on Laptop & Mobile) -->
+        <div class="card" id="shelf-live-card">
             <div class="card-header">
                 <div class="card-title">2. Smart Camera Shelf Analysis</div>
                 <div style="font-size: 0.75rem; color: var(--brand-blue); font-weight: 600;">Live AI Feed</div>
             </div>
 
+            <!-- Section 2A: On Desk / Shelf Resting Inventory -->
             <div class="shelf-live-box">
-                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); uppercase; margin-bottom: 4px;">
-                    ITEMS DETECTED ON SHELF BY CAMERA:
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                    <span>📦 ITEMS CURRENTLY RESTING ON DESK / SHELF:</span>
+                    <span style="color: var(--success-green); font-weight: 600;">VISION ACTIVE</span>
                 </div>
                 <div id="shelf-items-list">
                     <span class="shelf-item-tag">🔍 Analyzing shelf vision feed...</span>
+                </div>
+            </div>
+
+            <!-- Section 2B: Picked Off Desk / Shelf awaiting App Scan -->
+            <div class="shelf-live-box" style="background: #FFFBEB; border-color: rgba(217,119,6,0.3);">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--warning-amber); text-transform: uppercase; margin-bottom: 6px;">
+                    🚨 ITEMS PICKED OFF DESK (READY TO SCAN):
+                </div>
+                <div id="picked-items-list">
+                    <span class="shelf-item-tag" style="color: var(--text-muted);">✅ No unverified pickups</span>
+                </div>
+            </div>
+
+            <!-- Section 2C: Live Camera Event Audit Log Stream -->
+            <div class="shelf-live-box" style="margin-bottom: 14px;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                    ⚡ LIVE VISION EVENT STREAM:
+                </div>
+                <div id="camera-event-stream" style="font-size: 0.78rem; font-family: monospace; display: flex; flex-direction: column; gap: 4px;">
+                    <div style="color: var(--text-muted);">Waiting for camera state transitions...</div>
                 </div>
             </div>
 
@@ -482,23 +519,62 @@
             }
         }
 
+        async function updateCameraShelfFeed() {
+            try {
+                // Fetch Live Camera Shelf & Pick State (Runs unconditionally on Laptop & Phone)
+                const shelfRes = await fetch(`${API_URL}/cv/shelf-state`);
+                const shelfData = await shelfRes.json();
+                
+                // 1. Render Items Resting on Desk / Shelf with Quantities
+                const shelfListEl = document.getElementById("shelf-items-list");
+                if (shelfData.items_with_qty && shelfData.items_with_qty.length > 0) {
+                    shelfListEl.innerHTML = shelfData.items_with_qty.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green); font-weight: 600;">📦 ${item.emoji || '📦'} ${item.name.toUpperCase()} (Qty: ${item.qty})</span>
+                    `).join("");
+                    loadCatalog(); // Refresh available barcodes dynamically
+                } else if (shelfData.items && shelfData.items.length > 0) {
+                    shelfListEl.innerHTML = shelfData.items.map(item => `
+                        <span class="shelf-item-tag" style="border-color: var(--success-green); font-weight: 600;">📦 ${item.toUpperCase()} (Resting on Desk)</span>
+                    `).join("");
+                } else {
+                    shelfListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--text-muted);">🔍 Desk Empty / Place Any Items On Desk</span>`;
+                }
+
+                // 2. Render Items Picked Off Desk / Shelf (Awaiting Barcode Scan)
+                const pickedListEl = document.getElementById("picked-items-list");
+                if (shelfData.picked_items && shelfData.picked_items.length > 0) {
+                    pickedListEl.innerHTML = shelfData.picked_items.map(item => {
+                        const qtyStr = item.qty ? ` (Qty: ${item.qty})` : '';
+                        return `<span class="shelf-item-tag" style="background: #FEF3C7; border-color: var(--warning-amber); color: #92400E; font-weight: 700;">🚨 👆 ${item.emoji || '📦'} ${item.name.toUpperCase()}${qtyStr} PICKED — Scan Barcode Below</span>`;
+                    }).join("");
+                } else {
+                    pickedListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--success-green); font-weight: 600;">✅ 0 Picked Items — All Desk Objects Accounted For</span>`;
+                }
+
+                // 3. Render Live Camera Event Audit Stream
+                const eventStreamEl = document.getElementById("camera-event-stream");
+                if (shelfData.last_events && shelfData.last_events.length > 0) {
+                    eventStreamEl.innerHTML = shelfData.last_events.map(ev => {
+                        const isPick = ev.event_type === 'picked';
+                        const icon = isPick ? '👆' : '↩️';
+                        const color = isPick ? 'var(--warning-amber)' : 'var(--success-green)';
+                        const action = isPick ? 'picked up' : 'returned';
+                        const location = isPick ? 'off desk' : 'to desk';
+                        return `<div style="color: ${color}; font-weight: 600;">[${ev.timestamp}] ${icon} Customer ${action} ${ev.cv_class.upper()} ${location}</div>`;
+                    }).join("");
+                } else {
+                    eventStreamEl.innerHTML = `<div style="color: var(--text-muted);">Waiting for camera state transitions...</div>`;
+                }
+            } catch (err) {
+                console.error("Error updating camera shelf feed", err);
+            }
+        }
+
         async function updateCartState() {
+            updateCameraShelfFeed();
             if (!currentSessionId) return;
 
             try {
-                // Fetch Live Camera Shelf State
-                const shelfRes = await fetch(`${API_URL}/cv/shelf-state`);
-                const shelfData = await shelfRes.json();
-                const shelfListEl = document.getElementById("shelf-items-list");
-                
-                if (shelfData.items && shelfData.items.length > 0) {
-                    shelfListEl.innerHTML = shelfData.items.map(item => `
-                        <span class="shelf-item-tag">📦 ${item.toUpperCase()} (Resting on Shelf)</span>
-                    `).join("");
-                } else {
-                    shelfListEl.innerHTML = `<span class="shelf-item-tag" style="color: var(--danger-red);">🚨 SHELF EMPTY (Item Picked by User)</span>`;
-                }
-
                 // Fetch Cart & Ledger State
                 const res = await fetch(`${API_URL}/app/cart/${currentSessionId}`);
                 const data = await res.json();
@@ -621,13 +697,15 @@
             setTimeout(() => { toast.classList.remove("active"); }, 3000);
         }
 
-        // Poll cart & live camera shelf state every 1.5s
+        // Poll live camera shelf feed & cart state every 1s
         setInterval(() => {
+            updateCameraShelfFeed();
             if (currentSessionId) updateCartState();
-        }, 1500);
+        }, 1000);
 
-        // Initial catalog load & active session check
+        // Initial catalog load, camera feed load & session check
         loadCatalog();
+        updateCameraShelfFeed();
         checkExistingSession();
     </script>
 </body>

@@ -80,17 +80,25 @@ def init_db():
         )
     """)
 
-    # Force re-seed products to strictly match the 2 required items (bottle & banana)
+    # Clear stale historical events & carts to ensure clean 0 initial pick count on startup
+    cursor.execute("DELETE FROM cv_events")
+    cursor.execute("DELETE FROM cart_items")
+    cursor.execute("DELETE FROM anomaly_log")
+    cursor.execute("UPDATE sessions SET status = 'completed' WHERE status = 'active'")
+
+    # Seed products table with target items (Bottle, Phone, Book)
     cursor.execute("DELETE FROM products")
     products = [
-        ("Coca-Cola 500ml", "1111", 2.50, "bottle", 500.0, "Shelf-A1", "🥤"),
-        ("Chiquita Banana", "0000", 0.50, "banana", 120.0, "Shelf-A2", "🍌"),
+        ("Water Bottle 500ml", "1111", 2.50, "bottle", 500.0, "Shelf-A1", "🥤"),
+        ("Smartphone Pro", "2222", 699.00, "cell phone", 200.0, "Shelf-A2", "📱"),
+        ("Hardcover Book", "3333", 15.00, "book", 450.0, "Shelf-A3", "📖"),
     ]
     cursor.executemany(
         "INSERT INTO products (name, barcode, price, cv_class, weight_g, shelf_slot, emoji) VALUES (?, ?, ?, ?, ?, ?, ?)",
         products
     )
-    print("[DB] Seeded exactly 2 products: Bottle (1111) & Banana (0000).")
+    print("[DB] Seeded 3 target products: Bottle (1111), Phone (2222), Book (3333).")
+    print("[DB] Cleared historical cv_events and cart logs for clean initial 0 pick count.")
 
     conn.commit()
     conn.close()
