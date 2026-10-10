@@ -396,6 +396,30 @@
             }
         }
 
+        async function checkExistingSession() {
+            try {
+                const res = await fetch(`${API_URL}/session/latest`);
+                if (res.status === 200) {
+                    const data = await res.json();
+                    currentSessionId = data.id;
+
+                    document.getElementById("disp-session-id").textContent = currentSessionId;
+                    document.getElementById("disp-track-id").textContent = data.person_track_id;
+
+                    document.getElementById("no-session-view").style.display = "none";
+                    document.getElementById("active-session-view").style.display = "block";
+                    document.getElementById("shelf-live-card").style.display = "block";
+                    document.getElementById("scanner-card").style.display = "block";
+                    document.getElementById("cart-card").style.display = "block";
+
+                    loadCatalog();
+                    updateCartState();
+                }
+            } catch (err) {
+                // User can manually click "Start Session"
+            }
+        }
+
         async function startNewSession() {
             try {
                 const res = await fetch(`${API_URL}/session/new`, {
@@ -574,8 +598,9 @@
             if (currentSessionId) updateCartState();
         }, 1500);
 
-        // Initial catalog load
+        // Initial catalog load & active session check
         loadCatalog();
+        checkExistingSession();
     </script>
 </body>
 </html>

@@ -17,7 +17,10 @@ import uuid
 import sqlite3
 import os
 
-from database import init_db, get_connection
+try:
+    from database import init_db, get_connection
+except ImportError:
+    from backend.database import init_db, get_connection
 
 # --- App Setup ---
 app = FastAPI(title="Scan & Go Loss Prevention API", version="3.6.0")
@@ -154,6 +157,7 @@ def new_session(req: NewSessionRequest = NewSessionRequest()):
     person_track_id = f"TRK-{uuid.uuid4().hex[:4].upper()}"
     
     conn = get_connection()
+    conn.execute("UPDATE sessions SET status = 'completed' WHERE status = 'active'")
     conn.execute(
         """INSERT INTO sessions 
            (id, person_track_id, preauth_status, payment_method, trust_score, status, created_at) 
