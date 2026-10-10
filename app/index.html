@@ -518,7 +518,7 @@
                     container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 24px 0; font-size: 0.85rem;">Your cart is empty. Pick up an item from the shelf and scan its barcode.</div>`;
                 } else {
                     container.innerHTML = data.items.map(item => `
-                        <div class="cart-item-row">
+                        <div class="cart-item-row" style="display: flex; justify-content: space-between; align-items: center;">
                             <div class="item-main">
                                 <div class="item-icon">${item.emoji || '📦'}</div>
                                 <div>
@@ -531,7 +531,12 @@
                                     <div class="item-sub">Qty: ${item.quantity} × $${item.price.toFixed(2)}</div>
                                 </div>
                             </div>
-                            <div class="item-price">$${item.subtotal.toFixed(2)}</div>
+                            <div style="text-align: right;">
+                                <div class="item-price">$${item.subtotal.toFixed(2)}</div>
+                                <button class="btn btn-outline" style="font-size: 0.65rem; padding: 3px 6px; margin-top: 4px; color: var(--danger-red); border-color: var(--danger-red);" onclick="removeCartItem('${item.barcode}')">
+                                    ↩️ Return & Delete
+                                </button>
+                            </div>
                         </div>
                     `).join("");
                 }
@@ -541,6 +546,29 @@
 
             } catch (err) {
                 console.error("Error updating cart", err);
+            }
+        }
+
+        async function removeCartItem(barcode) {
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`${API_URL}/app/cart/remove`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: currentSessionId, barcode: barcode })
+                });
+
+                const data = await res.json();
+                if (res.status === 200 && data.status === "success") {
+                    showToast("Item Removed", data.message, "success");
+                } else {
+                    showToast("Remove Blocked", data.detail || data.reason || "Cannot remove item.", "error");
+                }
+
+                updateCartState();
+            } catch (err) {
+                showToast("Network Error", err.message, "error");
             }
         }
 

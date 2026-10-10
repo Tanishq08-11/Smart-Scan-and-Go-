@@ -78,6 +78,10 @@ class ScanRequest(BaseModel):
     session_id: str
     barcode: str
 
+class RemoveCartItemRequest(BaseModel):
+    session_id: str
+    barcode: str
+
 def recalculate_trust_score(conn: sqlite3.Connection, session_id: str):
     """Calculates deterministic Trust Score based on active pick ledger."""
     score = 100
@@ -279,12 +283,15 @@ def scan_item(req: ScanRequest):
     available_unscanned_picks = pick_count - return_count - scanned_qty
 
     if available_unscanned_picks <= 0:
-        log_anomaly(conn, req.session_id, None, req.barcode,
-                    "NO_CAMERA_PICK",
-                    f"No active physical pick detected for '{product['name']}'. Item is still resting on shelf.")
+        if pick_count == 0:
+            err_msg = f"Security Alert: No physical pickup detected for '{product['name']}'. Please lift the item off the shelf first!"
+        else:
+            err_msg = f"Notice: All picked '{product['name']}' items are already in your cart. Lift another item off the shelf to scan again."
+
+        log_anomaly(conn, req.session_id, None, req.barcode, "NO_CAMERA_PICK", err_msg)
         recalculate_trust_score(conn, req.session_id)
         conn.close()
-        raise HTTPException(status_code=400, detail=f"Security Alert: No physical pickup detected for '{product['name']}'. Item is still resting on the shelf!")
+        raise HTTPException(status_code=400, detail=err_msg)
 
     # Match confirmed — Add to cart as VERIFIED
     existing = conn.execute(
@@ -315,6 +322,75 @@ def scan_item(req: ScanRequest):
         "verification_status": "VERIFIED",
         "message": f"✅ {product['name']} verified and added to cart!",
         "product": product,
+        "trust_score": trust_score
+    }
+
+# --- 3.5. Remove Item From Cart (Strict Condition: Item MUST be back on shelf!) ---
+@app.post("/app/cart/remove")
+def remove_cart_item(req: RemoveCartItemRequest):
+    conn = get_connection()
+
+    session = conn.execute("SELECT * FROM sessions WHERE id = ?", (req.session_id,)).fetchone()
+    if not session:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    product = conn.execute("SELECT * FROM products WHERE barcode = ?", (req.barcode,)).fetchone()
+    if not product:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    product = dict(product)
+    cv_class = product["cv_class"]
+
+    # Check if item is currently on shelf or returned
+    is_on_shelf = cv_class in current_shelf_inventory.get("items", [])
+    
+    recent_returns = conn.execute("""
+        SELECT COUNT(*) FROM cv_events
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'returned'
+    """, (req.session_id, cv_class)).fetchone()[0]
+
+    recent_picks = conn.execute("""
+        SELECT COUNT(*) FROM cv_events
+        WHERE session_id = ? AND cv_class = ? AND event_type = 'picked'
+    """, (req.session_id, cv_class)).fetchone()[0]
+
+    # Item is considered returned to shelf if currently on shelf OR return events match pick events
+    item_is_returned = is_on_shelf or (recent_returns >= recent_picks and recent_picks > 0)
+
+    if not item_is_returned:
+        log_anomaly(conn, req.session_id, cv_class, req.barcode,
+                    "UNAUTHORIZED_CART_REMOVE",
+                    f"Attempted to remove '{product['name']}' from cart while item is NOT resting on shelf.")
+        conn.close()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Security Alert: Cannot remove '{product['name']}' from cart. Please place the item back on the shelf rack first!"
+        )
+
+    cart_item = conn.execute(
+        "SELECT id, quantity FROM cart_items WHERE session_id = ? AND product_id = ?",
+        (req.session_id, product["id"])
+    ).fetchone()
+
+    if not cart_item:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"'{product['name']}' is not in your cart.")
+
+    if cart_item["quantity"] > 1:
+        conn.execute("UPDATE cart_items SET quantity = quantity - 1 WHERE id = ?", (cart_item["id"],))
+    else:
+        conn.execute("DELETE FROM cart_items WHERE id = ?", (cart_item["id"],))
+
+    conn.commit()
+    trust_score = recalculate_trust_score(conn, req.session_id)
+    conn.close()
+
+    print(f"[CART REMOVE SUCCESS] Session {req.session_id}: {product['name']} returned to shelf & removed from cart!")
+    return {
+        "status": "success",
+        "message": f"↩️ {product['name']} returned to shelf and removed from cart!",
         "trust_score": trust_score
     }
 
